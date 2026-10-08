@@ -1,0 +1,1123 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<title>Nova Agente ERP</title>
+<meta name="description" content="Demo de un agente IA que opera el ERP de Grupo Nova: trabaja de noche, acompaña la jornada, genera reportes y registra información.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* Layout: encabezado con pestañas del recorrido; panel de inicio como punto de partida; cada sección en un lienzo claro. Tema claro deliberado. */
+:root{
+  color-scheme:light;
+  --bg:#edf3fa; --surface:#ffffff; --surface-2:#f5f8fd; --line:#dbe5f1; --line-2:#c6d4e6;
+  --fg:#1a2a3e; --muted:#5a6b81; --faint:#8a99ad;
+  --accent:#3a76d0; --accent-2:#5b8def; --accent-soft:#e2edfc; --on-accent:#ffffff;
+  --ok:#2c9461; --ok-soft:#e1f4ea; --warn:#c7841a; --warn-soft:#fbf0dc; --crit:#d1534d; --crit-soft:#fbe6e4; --info:#3a76d0;
+  --c1:#5b8def; --c2:#f2b48a; --c3:#76c3b0; --c4:#ae9fe3; --c5:#9cc9f2; --c6:#ef9fb2;
+  --legacy-bg:#d4d0c8; --legacy-hi:#ffffff; --legacy-lo:#808080; --legacy-fg:#000000; --legacy-title:#0a246a; --legacy-title-2:#a6caf0; --legacy-cell:#ffffff; --legacy-sel:#0a246a;
+  --f-ui:"Plus Jakarta Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"Geist Mono",ui-monospace,Menlo,monospace;
+  --f-legacy:Tahoma,Verdana,"Segoe UI",sans-serif;
+  --shadow:0 1px 2px rgba(30,60,110,.05),0 8px 24px rgba(30,60,110,.07);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.app{display:grid;grid-template-columns:auto minmax(0,1fr);height:100%}
+.side{width:252px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px;padding:14px 10px;overflow-x:hidden;overflow-y:auto;transition:width .25s ease;z-index:30}
+.side-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px}
+.logo{display:flex;align-items:center;gap:10px;border:0;background:none;padding:0;text-align:left;min-width:0}
+.logo .m{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent-2),var(--accent));color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+.logo .txt{white-space:nowrap}
+.logo b{display:block;font-size:15px;letter-spacing:-.01em}
+.logo small{display:block;color:var(--muted);font-size:11.5px}
+.icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--muted);flex:none;padding:0}
+.icon-btn:hover{color:var(--accent);border-color:var(--accent-2)}
+.icon-btn svg{width:18px;height:18px;transition:transform .25s}
+.navlist{display:flex;flex-direction:column;gap:2px}
+.navlist .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:700;padding:12px 10px 4px;white-space:nowrap}
+.navlist button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:8px 10px;border-radius:10px;color:var(--muted);font-weight:500;text-align:left;white-space:nowrap;position:relative;font-size:13.5px}
+.navlist button svg{width:18px;height:18px;flex:none}
+.navlist button:hover{background:var(--surface-2);color:var(--fg)}
+.navlist button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.navlist .end{margin-left:auto;display:flex;gap:6px;align-items:center}
+.navlist .nn{font-family:var(--f-mono);font-size:11px;color:var(--faint)}
+.navlist .k{font-family:var(--f-mono);font-size:10.5px;background:var(--crit);color:#fff;border-radius:99px;padding:0 6px}
+.navlist .seen{width:16px;height:16px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center;font-size:10px}
+.side-foot{margin-top:auto;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface-2);font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:flex-start}
+.side-foot .live{margin-top:4px}
+@media (min-width:901px){
+ .app.collapsed .side{width:68px}
+ .app.collapsed .side .lbl,.app.collapsed .side .txt,.app.collapsed .side .nn,.app.collapsed .side .grp,.app.collapsed .side-foot .t{display:none}
+ .app.collapsed .navlist button{justify-content:center;padding:9px}
+ .app.collapsed .navlist .end{position:absolute;top:1px;right:3px;margin:0}
+ .app.collapsed .navlist .k{font-size:9px;padding:0 4px}
+ .app.collapsed .side-top{flex-direction:column}
+ .app.collapsed .side-foot{justify-content:center;padding:10px}
+ .app.collapsed .collapse-btn svg{transform:rotate(180deg)}
+}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+header.top{display:flex;align-items:center;gap:12px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:10;min-height:57px}
+.menu-btn,.where{display:none}
+.where{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;white-space:nowrap;flex:none;margin-left:auto}
+.live{width:8px;height:8px;border-radius:50%;background:var(--ok);position:relative;flex:none;display:inline-block}
+.live::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--ok);opacity:.5;animation:ping 2s ease-out infinite}
+@keyframes ping{0%{transform:scale(.5);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+.scrim{display:none}
+header.top .cmd{flex:1}
+.cmd{display:flex;align-items:center;gap:10px;border:1px solid var(--line-2);border-radius:11px;padding:0 6px 0 14px;background:var(--surface-2);max-width:760px}
+.cmd:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.cmd input{flex:1;min-width:0;border:0;background:none;padding:10px 0;outline:none}
+.cmd .spark{color:var(--accent);font-size:15px}
+.cmd kbd{font-family:var(--f-mono);font-size:11px;color:var(--muted);border:1px solid var(--line-2);border-radius:5px;padding:1px 6px;background:var(--surface)}
+.cmd.big{max-width:none;padding:4px 8px 4px 18px;border-radius:14px;background:var(--surface);box-shadow:var(--shadow)}
+.cmd.big input{padding:14px 0;font-size:16px}
+.view{flex:1;overflow:auto;padding-block:24px 56px;padding-inline:24px}
+.wrap{max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.eyebrow{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.025em;margin:4px 0 6px;font-weight:700;text-wrap:balance}
+h2{font-size:16px;letter-spacing:-.01em;margin:0;font-weight:700}
+.lede{color:var(--muted);margin:0;max-width:70ch;font-size:15px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);min-width:0}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.sub{color:var(--muted);font-size:12.5px}
+.next{display:flex;justify-content:flex-end}
+.next button{border:1px solid var(--line-2);background:var(--surface);border-radius:11px;padding:10px 16px;font-weight:600;color:var(--accent);box-shadow:var(--shadow)}
+.next button:hover{border-color:var(--accent)}
+.hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px;align-items:stretch}
+.hero-l{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.hero h1{font-size:34px}
+.today{background:linear-gradient(160deg,#dfeafb,#eef3fd 55%,#f3efff);border:1px solid var(--line);border-radius:18px;padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.today div span{display:block;font-size:12px;color:var(--muted)}
+.today div b{font-size:26px;font-family:var(--f-mono);letter-spacing:-.03em;font-weight:500}
+.today .wide{grid-column:1/-1;font-size:13px;color:var(--muted);border-top:1px solid var(--line-2);padding-top:10px;display:flex;align-items:center;gap:10px}
+.journey-h{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.prog{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.prog i{display:block;width:140px;height:6px;border-radius:9px;background:var(--line);overflow:hidden}
+.prog i b{display:block;height:100%;background:var(--accent);border-radius:9px;transition:width .4s}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.tile{position:relative;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow);transition:transform .2s,border-color .2s;min-height:170px}
+.tile:hover{transform:translateY(-2px);border-color:var(--accent-2)}
+.tile .n{font-family:var(--f-mono);font-size:12px;color:var(--faint)}
+.tile .ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--tint)}
+.tile .ico svg{width:20px;height:20px;color:var(--fg)}
+.tile b{font-size:16px;letter-spacing:-.01em}
+.tile p{margin:0;color:var(--muted);font-size:13px}
+.tile .badge{margin-top:auto}
+.tile .done{position:absolute;top:14px;right:44px;width:22px;height:22px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:12px}
+.tile.legacy-tile{background:var(--surface-2);border-style:dashed;box-shadow:none}
+.tile .row{display:flex;justify-content:space-between;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.crit{color:var(--crit);background:var(--crit-soft)}
+.chip.warn{color:var(--warn);background:var(--warn-soft)}
+.chip.ok{color:var(--ok);background:var(--ok-soft)}
+.chip.info{color:var(--accent);background:var(--accent-soft)}
+.chip.plain{color:var(--muted);background:var(--surface-2);border:1px solid var(--line)}
+.chip.plain::before{display:none}
+.tag{font-family:var(--f-mono);font-size:11px;color:var(--muted);border:1px solid var(--line-2);border-radius:5px;padding:0 6px;white-space:nowrap;background:var(--surface)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.stat span{font-size:12px;color:var(--muted)}
+.stat b{display:block;font-size:26px;font-weight:500;letter-spacing:-.03em;font-family:var(--f-mono);margin-top:2px}
+.stat small{color:var(--faint);font-size:12px}
+.stat.accent{background:var(--accent-soft);border-color:#c9dcf8}
+.stat.accent b{color:var(--accent)}
+.night{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px}
+.tl{list-style:none;margin:0;padding:0;position:relative}
+.tl::before{content:"";position:absolute;left:68px;top:6px;bottom:6px;width:1px;background:var(--line-2)}
+.tl li{display:grid;grid-template-columns:48px 20px minmax(0,1fr);gap:10px;padding:7px 0;align-items:start}
+.tl time{font-family:var(--f-mono);font-size:12px;color:var(--muted);padding-top:1px;text-align:right}
+.tl .dot{width:11px;height:11px;border-radius:50%;margin:5px 0 0 5px;background:var(--surface);border:2px solid var(--line-2);position:relative;z-index:1}
+.tl .dot.auto{border-color:var(--ok);background:var(--ok)}
+.tl .dot.det{border-color:var(--crit)}
+.tl .dot.ver{border-color:var(--accent);background:var(--accent)}
+.tl p{margin:0}
+.tl p small{display:block;color:var(--muted)}
+.decide{display:flex;flex-direction:column;gap:10px}
+.dcard{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--surface-2);text-align:left;width:100%;transition:border-color .2s}
+.dcard:hover{border-color:var(--accent)}
+.dcard b{font-size:14.5px}
+.dcard .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.mis{display:grid;grid-template-columns:310px minmax(0,1fr);gap:16px;align-items:start}
+.mlist{display:flex;flex-direction:column;gap:8px}
+.mitem{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;text-align:left;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;width:100%}
+.mitem::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sev)}
+.mitem.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.mitem b{font-size:14px;line-height:1.3}
+.mitem .row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.mitem .imp{font-size:12px;color:var(--muted)}
+.mini-steps{display:flex;gap:3px}
+.mini-steps i{flex:1;height:3px;border-radius:2px;background:var(--line)}
+.mini-steps i.d{background:var(--accent)}
+.mini-steps i.c{background:var(--accent-2);animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.mhead{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.mhead h1{font-size:24px;margin:2px 0 4px}
+.impact{text-align:right}
+.impact b{display:block;font-size:22px;font-family:var(--f-mono);letter-spacing:-.02em;color:var(--crit);font-weight:500}
+.impact.okc b{color:var(--ok)}
+.impact span{color:var(--muted);font-size:12px}
+.stepper{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:14px}
+.st{padding:9px 10px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:12px;color:var(--faint);min-width:0}
+.st b{display:block;font-size:12.5px;color:inherit;font-weight:600}
+.st small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st.d{color:var(--muted)}
+.st.d b::before{content:"✓ ";color:var(--ok)}
+.st.c{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.st.c b::before{content:"● ";animation:blink 1.4s infinite}
+.mbody{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.cv{position:relative;height:220px}
+.find{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:8px}
+.find li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;font-size:13.5px}
+.actions{display:flex;flex-direction:column;gap:8px}
+.action{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+.action .ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line-2);display:grid;place-items:center;font-size:12px;margin-top:1px;color:transparent;transition:all .3s;background:var(--surface)}
+.action.done .ck{background:var(--ok);border-color:var(--ok);color:#fff}
+.action.run .ck{border-color:var(--accent);border-top-color:transparent;animation:spin .8s linear infinite}
+.action.rev{opacity:.6}
+.action.rev .ck{border-color:var(--warn);color:var(--warn)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.action p{margin:0;font-size:13.5px}
+.action p small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);border-radius:10px;padding:9px 14px;font-weight:600;font-size:13.5px}
+.btn:hover{filter:brightness(1.06)}
+.btn.sec{background:var(--surface);color:var(--fg);border-color:var(--line-2)}
+.btn.sec:hover{border-color:var(--accent);color:var(--accent)}
+.btn.sm{padding:6px 11px;font-size:12.5px}
+.btn:disabled{opacity:.45;cursor:default;filter:none}
+.note{font-size:12.5px;color:var(--muted);border-left:2px solid var(--accent-2);padding:2px 0 2px 10px;margin-top:10px}
+.map svg{width:100%;height:auto;display:block}
+.map .edge{stroke:var(--line-2);stroke-width:1.2}
+.map .edge.hot{stroke:var(--accent);stroke-width:2}
+.map .node rect{fill:var(--surface-2);stroke:var(--line-2);stroke-width:1;transition:all .3s}
+.map .node text{fill:var(--muted);font-size:11px;font-family:var(--f-ui);font-weight:600}
+.map .node.hot rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.6}
+.map .node.hot text{fill:var(--accent)}
+.map .core circle.b{fill:var(--accent)}
+.map .core circle.r{fill:none;stroke:var(--accent-2);opacity:.4}
+.map .core text{fill:#fff;font-size:11px;font-weight:700;font-family:var(--f-ui)}
+.map .packet{fill:var(--accent)}
+.mlog{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12.5px;max-height:200px;overflow:auto}
+.mlog li{display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px;color:var(--muted)}
+.mlog li time{font-family:var(--f-mono);font-size:11.5px}
+.mlog li.new{color:var(--fg);animation:fadein .4s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.day{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+.feed{display:flex;flex-direction:column;gap:10px}
+.ev{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:14px 16px;display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;box-shadow:var(--shadow);animation:fadein .5s ease}
+.ev time{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);padding-top:2px}
+.ev b{font-size:14px}
+.ev p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+.ev .who{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.ev.ask{border-color:#f0d3a3;background:linear-gradient(180deg,var(--warn-soft),var(--surface) 70%)}
+.typing{display:inline-flex;gap:4px;align-items:center;padding:10px 14px;border-radius:12px;background:var(--surface);border:1px dashed var(--line-2);color:var(--muted);font-size:12.5px;width:max-content;max-width:100%}
+.typing i{width:5px;height:5px;border-radius:50%;background:var(--accent-2);animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+.side-stack{display:flex;flex-direction:column;gap:16px}
+.counter{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.counter div{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.counter span{display:block;font-size:12px;color:var(--muted)}
+.counter b{font-family:var(--f-mono);font-size:22px;font-weight:500}
+.how{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:13.5px}
+.how li{display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px}
+.how li>span{width:24px;height:24px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:12px}
+.how li p{margin:0}
+.how li small{display:block;color:var(--muted)}
+.cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.side-h{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.side-h .lbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.side-h .lbl.old{color:var(--muted)}
+.side-h .lbl.new{color:var(--accent)}
+.meters{display:flex;gap:16px}
+.meters div{text-align:right}
+.meters span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.meters b{font-family:var(--f-mono);font-size:22px;font-weight:500;letter-spacing:-.02em}
+.oldscreen{position:relative;height:420px;overflow:hidden;border-radius:4px}
+.legacy{font-family:var(--f-legacy);font-size:12px;color:var(--legacy-fg);background:var(--legacy-bg);border:2px solid;border-color:var(--legacy-hi) var(--legacy-lo) var(--legacy-lo) var(--legacy-hi)}
+.legacy .tb{background:linear-gradient(90deg,var(--legacy-title),var(--legacy-title-2));color:#fff;font-weight:700;padding:3px 6px;display:flex;justify-content:space-between}
+.legacy .tb i{font-style:normal;letter-spacing:4px}
+.legacy .mb{display:flex;gap:12px;padding:3px 8px;border-bottom:1px solid var(--legacy-lo);flex-wrap:wrap}
+.legacy .mb span:first-letter{text-decoration:underline}
+.legacy .bd{padding:8px}
+.legacy .fld{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.legacy .in{background:var(--legacy-cell);border:2px solid;border-color:var(--legacy-lo) var(--legacy-hi) var(--legacy-hi) var(--legacy-lo);padding:1px 4px;min-width:90px}
+.legacy .bt{background:var(--legacy-bg);border:2px solid;border-color:var(--legacy-hi) var(--legacy-lo) var(--legacy-lo) var(--legacy-hi);padding:2px 10px}
+.legacy .bt.press{border-color:var(--legacy-lo) var(--legacy-hi) var(--legacy-hi) var(--legacy-lo);background:#c0bcb4}
+.legacy table{border-collapse:collapse;width:100%;background:var(--legacy-cell)}
+.legacy th{background:var(--legacy-bg);border:1px solid var(--legacy-lo);font-weight:400;padding:2px 5px;text-align:left}
+.legacy td{border:1px solid #c0c0c0;padding:2px 5px;white-space:nowrap}
+.legacy tr.sel td{background:var(--legacy-sel);color:#fff}
+.legacy.xls .tb{background:linear-gradient(90deg,#1d6f42,#5fa77b)}
+.legacy .sbar{border-top:1px solid var(--legacy-lo);padding:2px 6px;display:flex;justify-content:space-between}
+.oldscreen .legacy{position:absolute;inset:0;display:flex;flex-direction:column}
+.oldscreen .bd{flex:1;overflow:hidden}
+.fcur{position:absolute;left:0;top:0;width:18px;height:18px;pointer-events:none;transition:transform .45s cubic-bezier(.5,.1,.2,1);z-index:3}
+.oldlog{list-style:none;margin:10px 0 0;padding:0;font-size:12.5px;color:var(--muted);display:grid;gap:3px;max-height:150px;overflow:auto}
+.oldlog li.c{color:var(--fg)}
+.agentside{height:420px;border-radius:12px;border:1px solid #c9dcf8;background:linear-gradient(180deg,var(--accent-soft),var(--surface) 65%);padding:16px;display:flex;flex-direction:column;gap:10px;overflow:auto}
+.trace{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13px}
+.trace li{display:flex;gap:8px;color:var(--faint)}
+.trace li::before{content:"○";font-family:var(--f-mono)}
+.trace li.run{color:var(--fg)}
+.trace li.run::before{content:"◐";color:var(--accent)}
+.trace li.done{color:var(--muted)}
+.trace li.done::before{content:"✓";color:var(--ok)}
+.result{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;animation:fadein .4s ease}
+.result p{margin:0 0 6px}
+.verdict{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.verdict .panel b{font-size:20px;letter-spacing:-.02em}
+.repgal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.rcard{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+.rcard:hover{border-color:var(--accent-2)}
+.rcard.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.rcard .thumb{height:46px;display:flex;align-items:flex-end;gap:4px;padding:6px;border-radius:8px;background:var(--surface-2)}
+.rcard .thumb i{flex:1;border-radius:3px 3px 0 0;background:var(--c)}
+.rcard b{font-size:13.5px}
+.gen{border:1px solid #c9dcf8;background:var(--accent-soft);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.canvas{background:#f3f6fa;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.rbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.rbar h2{font-size:17px}
+.rbar .meta{font-size:12px;color:var(--muted)}
+.slicers{display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line);align-items:flex-end}
+.slicer{display:flex;flex-direction:column;gap:3px}
+.slicer label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.slicer select{border:1px solid var(--line-2);border-radius:8px;background:var(--surface-2);padding:6px 10px;min-width:150px}
+.rgrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;padding:14px 16px}
+.vis{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0;grid-column:span 6}
+.vis.s3{grid-column:span 3}.vis.s4{grid-column:span 4}.vis.s8{grid-column:span 8}.vis.s12{grid-column:span 12}
+.vis h3{margin:0 0 6px;font-size:12.5px;font-weight:600;color:var(--fg);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.vis h3 em{font-style:normal;color:var(--faint);font-weight:400}
+.vis .kv{font-family:var(--f-mono);font-size:24px;letter-spacing:-.03em;font-weight:500;overflow-wrap:anywhere}
+.vis .kd{font-size:12px;font-weight:600}
+.kd.up{color:var(--ok)}.kd.down{color:var(--crit)}.kd.flat{color:var(--muted)}
+.vis .cv{height:230px}
+.matrix{overflow-x:auto}
+.matrix table{border-collapse:collapse;width:100%;font-size:12.5px}
+.matrix th,.matrix td{padding:6px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.matrix th:first-child,.matrix td:first-child{text-align:left;font-family:var(--f-ui)}
+.matrix th{font-size:11px;color:var(--muted);font-weight:600}
+.matrix td{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.matrix tr.tot td{font-weight:600;border-top:1px solid var(--line-2)}
+.narr{font-size:13.5px;line-height:1.6}
+.narr p{margin:0 0 6px}
+.narr b{color:var(--accent)}
+.pages{display:flex;gap:2px;padding:0 16px;background:var(--surface);border-top:1px solid var(--line);overflow-x:auto}
+.pages span{padding:8px 14px;font-size:12.5px;color:var(--muted);border-top:3px solid transparent;white-space:nowrap}
+.pages span.on{color:var(--fg);border-top-color:var(--accent);font-weight:600}
+.reg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px;align-items:start}
+.ask{display:flex;flex-direction:column;gap:10px}
+.ask textarea{width:100%;min-height:96px;border:1px solid var(--line-2);border-radius:12px;padding:12px;background:var(--surface-2);resize:vertical}
+.ask textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.examples{display:flex;flex-direction:column;gap:8px}
+.examples button{text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:11px;padding:10px 12px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
+.examples button:hover{border-color:var(--accent-2)}
+.examples .xi{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12px}
+.drop{border:1.5px dashed var(--line-2);border-radius:12px;padding:14px;text-align:center;color:var(--muted);font-size:13px;background:var(--surface)}
+.ficha{display:flex;flex-direction:column;gap:14px}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f.full{grid-column:1/-1}
+.f label{font-size:11.5px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.f label em{font-style:normal;font-weight:500;font-size:10.5px;padding:0 6px;border-radius:99px}
+.f label em.u{background:var(--accent-soft);color:var(--accent)}
+.f label em.s{background:#efe9fb;color:#6a55b8}
+.f label em.c{background:var(--ok-soft);color:var(--ok)}
+.f input{border:1px solid var(--line-2);border-radius:9px;padding:8px 10px;background:var(--surface);min-width:0;width:100%}
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:7px;font-size:13px}
+.checks li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px}
+.checks li i{font-style:normal;font-weight:700}
+.checks li.ok i{color:var(--ok)}.checks li.warn i{color:var(--warn)}
+.invoice{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fffefb;font-size:12.5px;font-family:var(--f-mono);color:#333;overflow-x:auto;white-space:nowrap}
+.invoice b{font-family:var(--f-ui)}
+.scan{position:relative;overflow:hidden}
+.scan::after{content:"";position:absolute;left:0;right:0;height:40px;background:linear-gradient(180deg,transparent,rgba(91,141,239,.25),transparent);animation:scan 1.4s linear infinite;top:-40px}
+@keyframes scan{to{top:100%}}
+.rules{display:flex;flex-direction:column}
+.rule{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.rule:first-child{border-top:0}
+.rule p{margin:0}
+.rule p small{display:block;color:var(--muted);font-size:12.5px}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:10px;padding:2px;background:var(--surface-2);flex-wrap:wrap}
+.seg button{border:0;background:none;border-radius:8px;padding:5px 10px;font-size:12.5px;color:var(--muted);font-weight:500}
+.seg button.on{background:var(--surface);box-shadow:var(--shadow);font-weight:600}
+.seg button.on.a{color:var(--ok)}.seg button.on.p{color:var(--warn)}.seg button.on.s{color:var(--info)}
+.lim{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.lim input{width:90px;border:1px solid var(--line-2);border-radius:7px;background:var(--surface-2);padding:3px 8px;font-family:var(--f-mono)}
+.tablewrap{overflow-x:auto}
+table.t{border-collapse:collapse;width:100%;font-size:13px}
+table.t th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--line)}
+table.t td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t td small{display:block;color:var(--muted)}
+table.t tr.new td{animation:hl 2s ease}
+@keyframes hl{from{background:var(--accent-soft)}to{background:transparent}}
+.lnk{border:0;background:none;color:var(--accent);font-weight:600;padding:0;font-size:12.5px}
+.legacy-tabs{display:flex;gap:2px;padding:6px 8px 0;flex-wrap:wrap}
+.legacy-tabs button{font-family:var(--f-legacy);font-size:12px;background:var(--legacy-bg);color:var(--legacy-fg);border:2px solid;border-color:var(--legacy-hi) var(--legacy-lo) var(--legacy-bg) var(--legacy-hi);padding:2px 10px;border-radius:0}
+.legacy-tabs button.on{background:var(--legacy-cell);font-weight:700}
+.legacy .scroll{overflow-x:auto}
+.byagent{background:#fff3b0;color:#000;font-weight:700;padding:0 4px}
+.companion{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid #c9dcf8;border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+.companion .av{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent-2),var(--accent));color:#fff;display:grid;place-items:center;font-weight:700}
+.companion p{margin:0;font-size:13.5px}
+.companion p small{display:block;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:#fff;padding:10px 16px;border-radius:11px;font-size:13px;max-width:min(560px,calc(100% - 32px));z-index:20;box-shadow:var(--shadow);animation:fadein .3s ease}
+.lr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:20px}
+.lr h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent)}
+.lect p{margin:0 0 8px;font-size:13.5px;line-height:1.6}
+.lect b{color:var(--accent)}
+.recs ol{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:r}
+.recs li{counter-increment:r;position:relative;padding:10px 12px 10px 42px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.recs li::before{content:counter(r);position:absolute;left:12px;top:10px;width:22px;height:22px;border-radius:50%;background:linear-gradient(180deg,var(--accent-2),var(--accent));color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
+.recs .rt{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.recs .rt b{font-size:13.5px}
+.recs p{margin:4px 0 6px;font-size:13px;color:var(--muted)}
+.recs .rm{display:flex;column-gap:14px;row-gap:2px;flex-wrap:wrap;font-size:12px;color:var(--fg)}
+.recs .rm span{white-space:normal}
+@media (max-width:900px){.lr{grid-template-columns:minmax(0,1fr)}}
+/* ===== efectos sutiles ===== */
+:root{--shadow:0 1px 2px rgba(30,60,110,.05),0 4px 12px rgba(30,60,110,.05),0 16px 40px rgba(30,60,110,.06);--lift:0 2px 4px rgba(30,60,110,.06),0 18px 40px rgba(58,118,208,.15)}
+body{background:radial-gradient(1100px 560px at 88% -12%,#d9e6fb 0%,transparent 60%),radial-gradient(900px 520px at -12% 28%,#ece6fb 0%,transparent 55%),radial-gradient(900px 600px at 62% 115%,#ddf1ea 0%,transparent 55%),var(--bg);background-attachment:fixed}
+header.top{background:rgba(255,255,255,.72);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
+.side{background:rgba(255,255,255,.8);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.panel{background:linear-gradient(180deg,#ffffff,#fbfdff);box-shadow:var(--shadow),inset 0 1px 0 #fff}
+.panel,.tile,.stat,.rcard,.dcard,.mitem,.vis,.ev{transition:transform .28s cubic-bezier(.2,.7,.2,1),box-shadow .28s,border-color .28s}
+.tile:hover,.rcard:hover,.dcard:hover,.mitem:hover,.stat:hover{transform:translateY(-3px);box-shadow:var(--lift);border-color:#c3d6f3}
+.tile,.rcard,.stat,.dcard,.mitem{position:relative;overflow:hidden}
+.tile::after,.rcard::after,.stat::after,.dcard::after,.mitem::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(240px circle at var(--mx,50%) var(--my,-30%),rgba(91,141,239,.13),transparent 62%);opacity:0;transition:opacity .3s}
+.tile:hover::after,.rcard:hover::after,.stat:hover::after,.dcard:hover::after,.mitem:hover::after{opacity:1}
+.tile .ico{box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),0 6px 14px -6px rgba(30,60,110,.3);transition:transform .3s}
+.tile:hover .ico{transform:scale(1.07) rotate(-3deg)}
+.btn{background:linear-gradient(180deg,var(--accent-2),var(--accent));box-shadow:0 6px 14px -6px rgba(58,118,208,.6),inset 0 1px 0 rgba(255,255,255,.25);transition:transform .15s,box-shadow .2s,filter .2s}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 20px -8px rgba(58,118,208,.65),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn:active:not(:disabled){transform:translateY(0)}
+.btn.sec{background:var(--surface);box-shadow:0 1px 2px rgba(30,60,110,.06)}
+.eyebrow{display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:"";width:18px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--accent),#9a8bec)}
+.grad{background:linear-gradient(95deg,var(--accent) 10%,#7a6be3 60%,#3aa58a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.today{background:linear-gradient(130deg,#dbe8fb,#eef3fd 40%,#f1ecff 70%,#e3f4ee);background-size:220% 220%;animation:drift 14s ease-in-out infinite alternate;box-shadow:var(--shadow)}
+@keyframes drift{from{background-position:0% 30%}to{background-position:100% 70%}}
+.stat.accent{background:linear-gradient(150deg,#e3edfc,#eef0fd)}
+.wrap>*{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+.wrap>*:nth-child(2){animation-delay:.05s}.wrap>*:nth-child(3){animation-delay:.1s}.wrap>*:nth-child(4){animation-delay:.15s}.wrap>*:nth-child(5){animation-delay:.2s}.wrap>*:nth-child(n+6){animation-delay:.25s}
+.tiles>.tile{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+.tiles>.tile:nth-child(2){animation-delay:.12s}.tiles>.tile:nth-child(3){animation-delay:.16s}.tiles>.tile:nth-child(4){animation-delay:.2s}.tiles>.tile:nth-child(5){animation-delay:.24s}.tiles>.tile:nth-child(6){animation-delay:.28s}.tiles>.tile:nth-child(7){animation-delay:.32s}.tiles>.tile:nth-child(8){animation-delay:.36s}.tiles>.tile:nth-child(9){animation-delay:.4s}
+.rgrid>.vis{animation:rise .45s cubic-bezier(.2,.7,.2,1) both}
+.rgrid>.vis:nth-child(n+5){animation-delay:.08s}.rgrid>.vis:nth-child(n+7){animation-delay:.14s}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.gen{position:relative;overflow:hidden}
+.gen::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);background-size:220% 100%;animation:sheen 1.6s linear infinite;pointer-events:none}
+@keyframes sheen{from{background-position:130% 0}to{background-position:-90% 0}}
+.navlist button.on::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--accent-2),var(--accent))}
+.map .core circle.b{filter:drop-shadow(0 6px 10px rgba(58,118,208,.35))}
+.vis{box-shadow:0 1px 2px rgba(30,60,110,.04)}
+.vis:hover{box-shadow:0 8px 22px -10px rgba(30,60,110,.22)}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+@media (max-width:1100px){.status{display:none}}
+@media (max-width:1100px){.mis{grid-template-columns:minmax(0,1fr)}.mlist{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.repgal{grid-template-columns:repeat(2,minmax(0,1fr))}.vis.s3{grid-column:span 6}.vis.s4,.vis.s8{grid-column:span 12}}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:fixed;left:0;top:0;bottom:0;width:284px;transform:translateX(-105%);transition:transform .25s ease;box-shadow:0 10px 40px rgba(20,40,70,.18);padding-top:calc(14px + env(safe-area-inset-top,0px))}
+  .app.open .side{transform:none}
+  .app.open .scrim{display:block;position:fixed;inset:0;background:rgba(20,40,70,.28);z-index:25}
+  .menu-btn{display:grid}.collapse-btn{display:none}
+  .where{display:block}
+  header.top{padding:10px 16px;flex-wrap:wrap}
+  header.top .cmd{flex-basis:100%;order:3}
+  .view{padding-inline:16px}
+  .hero,.night,.mbody,.cmp,.verdict,.day,.reg{grid-template-columns:minmax(0,1fr)}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stepper{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .rule{grid-template-columns:minmax(0,1fr)}
+  .vis,.vis.s3,.vis.s4,.vis.s8{grid-column:span 12}
+  .fgrid{grid-template-columns:minmax(0,1fr)}
+  h1,.hero h1{font-size:24px}
+}
+@media (max-width:520px){.tiles{grid-template-columns:minmax(0,1fr)}.repgal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}.rcard{flex:0 0 72%;scroll-snap-align:start}.companion{grid-template-columns:36px minmax(0,1fr)}.companion .btn{grid-column:1/-1}.cmd kbd{display:none}}
+</style>
+
+<div class="app" id="app">
+  <aside class="side" id="side" aria-label="Navegación">
+    <div class="side-top"><button class="logo" id="home" aria-label="Ir al inicio"><span class="m">N</span><span class="txt"><b>Nova Agente</b><small>Grupo Nova · Calzado</small></span></button>
+      <button class="icon-btn collapse-btn" id="collapse" aria-label="Contraer o expandir el menú"><svg viewBox="0 0 20 20"><path d="M11.5 5 6.5 10l5 5M15.5 5l-5 5 5 5" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+    <nav class="navlist" id="nav"></nav>
+    <div class="side-foot"><span class="live"></span><span class="t">Agente activo. Vigila 8 módulos del ERP. Datos simulados para demostración.</span></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <div class="main">
+    <header class="top">
+      <button class="icon-btn menu-btn" id="menu" aria-label="Abrir el menú"><svg viewBox="0 0 20 20"><path d="M3.5 6h13M3.5 10h13M3.5 14h13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+      <span class="where" id="where">Inicio</span>
+      <form class="cmd" id="cmdf"><span class="spark">✦</span><input id="cmdi" autocomplete="off" placeholder="Pídele algo al agente: «informe de ventas online del tercer trimestre»" aria-label="Instrucción para el agente"><kbd>Ctrl K</kbd></form>
+      <div class="status"><span class="live"></span><span>Agente activo</span></div>
+    </header>
+    <main class="view" id="view"></main>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const fmt=n=>Math.round(n).toLocaleString('es-CO');
+const fmt1=n=>n.toLocaleString('es-CO',{minimumFractionDigits:1,maximumFractionDigits:1});
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const wait=ms=>new Promise(r=>setTimeout(r,reduced?Math.min(ms,60):ms));
+let clock=[6,31];
+const hhmm=()=>String(clock[0]).padStart(2,'0')+':'+String(clock[1]).padStart(2,'0');
+function now(){clock[1]+=1+Math.floor(Math.random()*2);if(clock[1]>59){clock[0]++;clock[1]-=60}return hhmm()}
+function toast(t){document.querySelectorAll('.toast').forEach(x=>x.remove());const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),4200)}
+const norm=t=>(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const ICONS={
+  brief:'<path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.3 4.3l1.8 1.8M13.9 13.9l1.8 1.8M4.3 15.7l1.8-1.8M13.9 6.1l1.8-1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><circle cx="10" cy="10" r="3.2" fill="currentColor"/>',
+  mis:'<path d="M3 5h14M3 10h14M3 15h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/><circle cx="15.5" cy="15" r="2" fill="currentColor"/>',
+  day:'<circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/>',
+  rep:'<path d="M4 16V9M8 16V5M12 16v-6M16 16V7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  reg:'<rect x="3.5" y="3" width="13" height="14" rx="2" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 7v6M7 10h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  cmp:'<rect x="2.5" y="3.5" width="6.5" height="13" rx="1.5" stroke="currentColor" stroke-width="1.6" fill="none"/><rect x="11" y="3.5" width="6.5" height="13" rx="1.5" fill="currentColor"/>',
+  aut:'<path d="M3 6h8M15 6h2M3 14h2M9 14h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="2" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="7" cy="14" r="2" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+  log:'<path d="M5 2.5h10v15H5z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/><path d="M8 7h4M8 10h4M8 13h2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  erp:'<rect x="2.5" y="3.5" width="15" height="13" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M2.5 7h15M7 7v9.5" stroke="currentColor" stroke-width="1.6"/>'
+};
+const svg=k=>`<svg viewBox="0 0 20 20">${ICONS[k]}</svg>`;
+
+// ===================== datos simulados =====================
+const MOD={ventas:'Ventas',inventario:'Inventario',produccion:'Producción',compras:'Compras',cartera:'Cartera',nomina:'Nómina',activos:'Activos',finanzas:'Contabilidad'};
+const TALLAS=[35,36,37,38,39,40,41,42,43];
+const STOCK=[120,210,95,22,14,180,260,310,140],DEM=[40,60,85,90,70,55,45,30,15];
+const LVL={a:'Autónomo',p:'Con aprobación',s:'Solo sugerir'},LVLC={a:'ok',p:'warn',s:'info'};
+const S={
+  view:'home',mission:'m1',visited:new Set(),
+  rules:{cobro:'a',retener:'p',op:'a',opLim:500,personal:'p',oc:'a',ocLim:20,precio:'s'},
+  legacy:{
+    op:[['OP-1841','Tenis urbano Nova Flex','1.200','Montaje','68%','10/10/2026',''],['OP-1842','Botín escolar','900','Guarnición','35%','16/10/2026',''],['OP-1843','Bota Andes en cuero','450','Soladura','80%','09/10/2026',''],['OP-1844','Sandalia Brisa','1.500','Corte','12%','18/10/2026',''],['OP-1845','Tacón dama Lía','600','Guarnición','41%','15/10/2026','']],
+    ref:[['NF-210','Tenis urbano Nova Flex','Tenis','35–43','$ 159.900',''],['BE-114','Botín escolar','Escolar','27–40','$ 119.900',''],['SB-305','Sandalia Brisa','Sandalias','35–41','$ 89.900',''],['BA-118','Bota Andes en cuero negro','Botas y botines','35–43','$ 289.900',''],['TL-402','Tacón dama Lía','Tacón y formal','34–40','$ 179.900','']],
+    cli:[['900.318.442-7','Calzado El Paso','Bogotá','Mayorista','$ 150.000.000',''],['901.022.910-3','Distribuidora Paso Firme','Medellín','Mayorista','$ 220.000.000',''],['900.877.105-1','Almacenes Pisa Bien','Bucaramanga','Mayorista','$ 120.000.000','']],
+    oc:[['OC-3381','Curtiembres del Norte','Cuero napa negro','$ 214.000.000','Recibida',''],['OC-3382','Suelas Santander','Suela TR 35–43','$ 96.000.000','Recibida',''],['OC-3383','Insumos Calzacol','Pegante PU','$ 28.000.000','En tránsito','']],
+    cxc:[['FV-52210','Calzado El Paso','$ 82.000.000','74','Recordatorio enviado','agente'],['FV-52251','Almacenes Pisa Bien','$ 98.000.000','66','Recordatorio enviado','agente'],['FV-52292','Distribuidora Paso Firme','$ 186.000.000','61','Recordatorio enviado','agente'],['FV-52333','Comercializadora Andariegos','$ 71.000.000','48','Recordatorio enviado','agente']],
+    inv:[['NF-210','Tenis urbano Nova Flex',...STOCK],['BE-114','Botín escolar',88,140,190,210,175,160,120,70,30],['SB-305','Sandalia Brisa',150,220,260,240,180,90,40,0,0],['BA-118','Bota Andes en cuero',20,35,60,85,90,110,95,70,40]],
+    legTab:'op'
+  },
+  log:[
+    {t:'01:05',a:'Envió recordatorio de cobro a 5 mayoristas con más de 30 días',m:'cartera',d:'5 facturas, $ 551 M',by:'Regla: cobro autónomo',st:'ok'},
+    {t:'02:30',a:'Abrió 2 órdenes de mantenimiento urgente para máquinas de poste',m:'activos',d:'Eficiencia guarnición 78 %',by:'Regla: mantenimiento autónomo',st:'ok'},
+    {t:'02:31',a:'Reprogramó la entrega de OP-1842 al 16/10',m:'produccion',d:'Capacidad guarnición −22 %',by:'Regla: reprogramación autónoma',st:'ok'},
+    {t:'05:50',a:'Registró el abono de Calzado El Paso y cerró el seguimiento',m:'cartera',d:'Abono $ 60 M',by:'Agente (verificación)',st:'ok'}]
+};
+function addLog(a,m,d,by,extra){S.log.unshift(Object.assign({t:now(),a,m,d,by,st:'ok',fresh:true},extra||{}))}
+
+// ===================== misiones =====================
+const STAGES=['Lo encontró','Buscó la causa','Propone','Tu decisión','Lo hizo','Revisa el resultado'];
+const MIS=[
+ {id:'m1',title:'Quiebre de tallas en el Nova Flex',area:'Inventario · Producción',sev:'crit',status:'Espera tu aprobación',stc:'warn',stage:3,impact:'$ 128 M',impactL:'venta en riesgo · 4 semanas',detected:'23:40',
+  stageNotes:['23:40 · cobertura < 1,2 sem','4 módulos cruzados','4 acciones','Gerencia','—','24/10'],
+  lede:'Las tallas 37, 38 y 39 del tenis más vendido se agotan esta semana, mientras sobran pares en 42 y 43. La orden en curso reparte por igual y no corrige la curva.',
+  path:['inventario','ventas','produccion','compras'],
+  findings:[['inventario','Talla 38: 22 pares en bodega frente a 90 pares de venta semanal. Se agota en 2 días.'],['ventas','La demanda de 37–39 creció 24 % desde la campaña de regreso a clases.'],['produccion','OP-1841 (1.200 pares) llega el 10/10 con curva pareja: repite el desbalance.'],['compras','Hay suela EVA y capellada suficientes para 640 pares sin comprar más.']],
+  chart:'tallas',
+  actions:[
+   {t:'Crear OP-1846: 640 pares Nova Flex con curva 36–40 cargada a 37–39',m:'produccion',lv:'op',run:()=>{S.legacy.op.unshift(['OP-1846','Tenis urbano Nova Flex · curva 36–40','640','Programada','0%','17/10/2026','agente'])}},
+   {t:'Reservar insumos para la OP-1846: 640 suelas EVA y capellada textil',m:'compras',lv:'oc',run:()=>{}},
+   {t:'Trasladar 60 pares de tallas 37–39 desde la tienda Ventura a la bodega online',m:'inventario',lv:'personal',run:()=>{const r=S.legacy.inv[0];r[4]+=24;r[5]+=20;r[6]+=16}},
+   {t:'Avisar al jefe de planta y al líder de e-commerce con el plan',m:'nomina',lv:null,run:()=>{}}],
+  verify:'El 24/10 el agente medirá la cobertura de tallas 37–39. Meta: más de 3 semanas.'},
+ {id:'m2',title:'La planta va 6,7 % bajo el plan',area:'Producción · Nómina · Activos',sev:'warn',status:'En ejecución',stc:'info',stage:4,impact:'1.480 pares',impactL:'atraso acumulado · 5 semanas',detected:'02:12',
+  stageNotes:['02:12 · 3 semanas bajo plan','4 módulos cruzados','4 acciones','1 pendiente','3 de 4 hechas','15/10'],
+  lede:'Guarnición trabaja al 78 % y frena toda la línea. Faltan 6 operarias esta semana y 2 máquinas de poste están detenidas.',
+  path:['produccion','nomina','activos','ventas'],
+  findings:[['produccion','Montaje recibe cortes cosidos con un día de atraso. Guarnición es el único proceso bajo 85 %.'],['nomina','6 operarias de guarnición con incapacidad o permiso esta semana.'],['activos','Máquinas de poste #7 y #11 sin mantenimiento desde el 29/09.'],['ventas','El atraso afecta 2 pedidos mayoristas con entrega antes del 16/10.']],
+  chart:'planta',
+  actions:[
+   {t:'Abrir mantenimiento urgente para máquinas de poste #7 y #11',m:'activos',lv:null,done:true,run:()=>{}},
+   {t:'Reprogramar entrega de OP-1842 al 16/10',m:'produccion',lv:null,done:true,run:()=>{}},
+   {t:'Avisar a Calzado Doña Rosa del nuevo plazo de su pedido',m:'ventas',lv:null,done:true,run:()=>{}},
+   {t:'Mover 2 operarias de terminado a guarnición por 5 días',m:'nomina',lv:'personal',run:()=>{}}],
+  verify:'El 15/10 el agente comparará la eficiencia de guarnición. Meta: más de 90 %.'},
+ {id:'m3',title:'El margen de la bota Andes cayó 7,5 puntos',area:'Ventas · Compras · Producción',sev:'crit',status:'Espera tu decisión',stc:'warn',stage:3,impact:'−7,5 pp',impactL:'margen bruto T3 vs T2',detected:'03:12',
+  stageNotes:['03:12 · margen 27,1 %','4 módulos cruzados','3 acciones','Gerencia','—','fin de mes'],
+  lede:'El margen pasó de 34,6 % a 27,1 % en un trimestre. Hay cuatro causas y tres se pueden corregir esta semana.',
+  path:['ventas','compras','produccion','inventario'],
+  findings:[['compras','Curtiembres del Norte subió el cuero napa 14 % en julio y el precio de la bota no se ajustó. Explica 3,9 puntos.'],['produccion','Desde el cambio de pegante en agosto, el despegue de suela pasó de 2,1 % a 6,2 %. Explica 1,6 puntos.'],['ventas','El descuento a mayoristas subió de 9 % a 12 % por temporada. Explica 1,4 puntos.'],['inventario','Se vendieron más tallas grandes, que gastan más cuero. Explica 0,6 puntos.']],
+  chart:'margen',
+  actions:[
+   {t:'Subir el precio de lista de la bota Andes 6 %: de $ 289.900 a $ 307.300',m:'ventas',lv:'precio',run:()=>{const r=S.legacy.ref.find(x=>x[0]==='BA-118');r[4]='$ 307.300';r[5]='agente'}},
+   {t:'Abrir reclamo de calidad a Insumos Calzacol por el pegante PU y pedir nota crédito',m:'compras',lv:'oc',run:()=>{S.legacy.oc.unshift(['RC-0091','Insumos Calzacol','Reclamo de calidad pegante PU','Nota crédito','Abierto','agente'])}},
+   {t:'Volver al pegante anterior en las OP de bota Andes desde mañana',m:'produccion',lv:'personal',run:()=>{}}],
+  verify:'Al cierre de octubre el agente recalculará el margen. Meta: volver a más de 32 %.'},
+ {id:'m4',title:'Cartera mayorista vencida',area:'Cartera · Ventas',sev:'ok',status:'Resuelta por el agente',stc:'ok',stage:6,impact:'$ 60 M',impactL:'recuperados esta mañana',detected:'00:48',
+  stageNotes:['00:48 · 5 clientes > 30 días','2 módulos','1 acción','Regla autónoma','01:05','05:50 ✓'],
+  lede:'Cinco mayoristas superaban 30 días. Tus reglas permiten enviar recordatorios sin aprobación, así que el agente los envió y siguió el caso.',
+  path:['cartera','ventas'],
+  findings:[['cartera','$ 551 M en 5 facturas con más de 30 días de vencidas.'],['ventas','Calzado El Paso tenía un pedido nuevo de 1.400 pares por despachar.'],['cartera','A las 05:50 Calzado El Paso abonó $ 60 M.']],
+  chart:'cartera',
+  actions:[{t:'Enviar recordatorio de cobro a 5 mayoristas con detalle de facturas',m:'cartera',lv:'cobro',done:true,run:()=>{}}],
+  verify:'Verificado: entró el abono de $ 60 M. El agente seguirá a los otros 4 clientes.'},
+ {id:'m5',title:'Reposición de la Sandalia Brisa',area:'Inventario',sev:'ok',status:'Verificando',stc:'info',stage:5,impact:'4,2 sem',impactL:'cobertura actual',detected:'01/10',
+  stageNotes:['01/10','2 módulos','1 acción','Autónoma','02/10','hoy'],
+  lede:'La semana pasada el agente lanzó una orden de 380 pares dentro de tu límite autónomo. Hoy confirma que la cobertura se recuperó.',
+  path:['inventario','produccion'],
+  findings:[['inventario','La cobertura subió de 0,9 a 4,2 semanas.'],['produccion','OP-1838 entregada a tiempo el 06/10.']],
+  chart:'brisa',
+  actions:[{t:'Crear OP-1838: 380 pares Sandalia Brisa',m:'produccion',lv:'op',done:true,run:()=>{}}],
+  verify:'Cobertura sobre la meta de 3 semanas. El agente cierra el caso mañana si se mantiene.'}];
+MIS.forEach(m=>{m.actions.forEach(a=>a.state=a.done?'done':'pend');m.played=false;m.mlog=[]});
+const pendingCount=()=>MIS.filter(m=>m.stage===3).length;
+
+// ===================== navegación =====================
+const SECTIONS=[
+ ['brief','Mientras no estabas','brief','#e2edfc','Lo que el agente hizo durante la noche y lo que dejó listo para ti.'],
+ ['mis','Pendientes por resolver','mis','#fbe6e4','Problemas que el agente encontró solo. Trae la causa y un plan; lo ejecuta cuando apruebas.'],
+ ['day','Durante la jornada','day','#e1f4ea','El agente trabaja a tu lado en tiempo real mientras operas.'],
+ ['rep','Reportes','rep','#efe9fb','Informes estilo Power BI generados al pedirlos, con filtros vivos.'],
+ ['reg','Registrar','reg','#fbf0dc','Crea referencias, clientes o compras con una frase o un documento.'],
+ ['cmp','Tradicional vs. agente','cmp','#e6f1fb','La misma pregunta resuelta en un ERP clásico y con el agente.'],
+ ['aut','Autonomía','aut','#e1f4ea','Tú decides qué hace solo, qué consulta y qué solo sugiere.'],
+ ['log','Bitácora','log','#eef1f6','Cada acción queda auditada y se puede revertir.']];
+function badge(id){
+  if(id==='mis')return pendingCount()?`<span class="chip warn">${pendingCount()} esperan tu decisión</span>`:'<span class="chip ok">Todo decidido</span>';
+  return {brief:'<span class="chip info">4 acciones de la noche</span>',day:'<span class="chip ok">En vivo</span>',rep:'<span class="chip info">4 informes listos</span>',reg:'<span class="chip plain">Texto o documento</span>',cmp:'<span class="chip plain">Para la presentación</span>',aut:'<span class="chip plain">6 reglas activas</span>',log:`<span class="chip plain">${S.log.length} registros hoy</span>`}[id]||'';
+}
+const mobile=()=>matchMedia('(max-width:900px)').matches;
+const NAMES=Object.fromEntries([['home','Inicio'],['erp','ERP clásico'],...SECTIONS.map(x=>[x[0],x[1]])]);
+function navBtn(id,ico,label,end){return `<button data-v="${id}" class="${S.view===id?'on':''}" title="${label}">${svg(ico)}<span class="lbl">${label}</span><span class="end">${end||''}</span></button>`}
+function renderTabs(){
+  const homeIco='<path d="M3.5 9 10 3.5 16.5 9v7.5h-4.5v-5h-4v5H3.5z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/>';
+  ICONS.home=homeIco;
+  $('#nav').innerHTML=navBtn('home','home','Inicio')+'<div class="grp">Recorrido del día</div>'+
+    SECTIONS.map((x,i)=>navBtn(x[0],x[2],x[1],x[0]==='mis'&&pendingCount()?`<span class="k">${pendingCount()}</span>`:S.visited.has(x[0])?'<span class="seen">✓</span>':`<span class="nn">${String(i+1).padStart(2,'0')}</span>`)).join('')+
+    '<div class="grp">Sistema</div>'+navBtn('erp','erp','ERP clásico');
+  $('#cmdf').hidden=S.view==='home';
+  $('#where').textContent=NAMES[S.view]||'';
+}
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.v)});
+$('#home').onclick=()=>go('home');
+const app=$('#app');
+try{if(localStorage.getItem('nova-collapsed')==='1')app.classList.add('collapsed')}catch(e){}
+$('#collapse').onclick=()=>{app.classList.toggle('collapsed');try{localStorage.setItem('nova-collapsed',app.classList.contains('collapsed')?'1':'0')}catch(e){};setTimeout(()=>charts.forEach(c=>c.resize()),280)};
+$('#menu').onclick=()=>app.classList.add('open');
+$('#scrim').onclick=()=>app.classList.remove('open');
+addEventListener('keydown',e=>{if(e.key==='Escape')app.classList.remove('open')});
+function countUp(root){if(reduced||!root)return;root.querySelectorAll('.stat b,.today b,.kv,.impact b').forEach(el=>{const txt=el.textContent,m=txt.match(/\d[\d.]*(,\d+)?/);if(!m)return;
+  const raw=m[0],dec=(raw.split(',')[1]||'').length,val=parseFloat(raw.replace(/\./g,'').replace(',','.'));if(!isFinite(val)||val<2)return;
+  const pre=txt.slice(0,m.index),post=txt.slice(m.index+raw.length),t0=performance.now(),D=750;
+  (function f(t){const k=Math.min(1,(t-t0)/D),e=1-Math.pow(1-k,3);el.textContent=k<1?pre+(val*e).toLocaleString('es-CO',{minimumFractionDigits:dec,maximumFractionDigits:dec})+post:txt;if(k<1)requestAnimationFrame(f)})(t0)})}
+$('#view').addEventListener('pointermove',e=>{const el=e.target.closest('.tile,.rcard,.stat,.dcard,.mitem');if(!el)return;const r=el.getBoundingClientRect();el.style.setProperty('--mx',(e.clientX-r.left)+'px');el.style.setProperty('--my',(e.clientY-r.top)+'px')});
+let charts=[];
+function clearCharts(){charts.forEach(c=>c.destroy());charts=[]}
+let viewToken=0;
+function go(v,mid){
+  S.view=v;if(mid)S.mission=mid;if(v!=='home'&&v!=='erp')S.visited.add(v);
+  viewToken++;clearCharts();app.classList.remove('open');renderTabs();
+  const r={home:vHome,brief:vBrief,mis:vMis,day:vDay,rep:vRep,reg:vReg,cmp:vCmp,aut:vAut,log:vLog,erp:vErp}[v]();
+  $('#view').innerHTML=r[0]+nextBtn(v);$('#view').scrollTop=0;
+  const nb=$('#nextb');if(nb)nb.onclick=()=>go(nb.dataset.v);
+  r[1]&&r[1]();countUp($('#view'));
+}
+function nextBtn(v){const i=SECTIONS.findIndex(s=>s[0]===v);if(i<0)return'';const n=SECTIONS[i+1];
+  return `<div class="wrap" style="margin-top:20px"><div class="next"><button id="nextb" data-v="${n?n[0]:'home'}">${n?`Siguiente: ${n[1]} →`:'Volver al inicio →'}</button></div></div>`}
+
+// ===================== gráficos =====================
+function chart(id,cfg){
+  const fg=css('--muted'),grid=css('--line');
+  Chart.defaults.font.family=css('--f-ui');Chart.defaults.color=fg;
+  cfg.options=Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:reduced?0:700},plugins:{legend:{position:'bottom',labels:{boxWidth:9,boxHeight:9,usePointStyle:true}}}},cfg.options||{});
+  if(cfg.type!=='doughnut'){cfg.options.scales=cfg.options.scales||{};for(const ax of ['x','y'])cfg.options.scales[ax]=Object.assign({grid:{color:grid},border:{color:grid},ticks:{color:fg}},cfg.options.scales[ax]||{})}
+  const el=document.getElementById(id);if(el){const c=new Chart(el,cfg);charts.push(c);return c}
+}
+const PAL=()=>['--c1','--c2','--c3','--c4','--c5','--c6'].map(css);
+const CH={
+  tallas:id=>chart(id,{type:'bar',data:{labels:TALLAS.map(String),datasets:[{label:'Existencia (pares)',data:S.legacy.inv[0].slice(2),backgroundColor:css('--c1'),borderRadius:4},{label:'Demanda próximas 4 semanas',data:DEM.map(d=>d*4),backgroundColor:css('--c2'),borderRadius:4}]}}),
+  planta:id=>chart(id,{type:'bar',data:{labels:['Corte','Guarnición','Montaje','Soladura','Terminado'],datasets:[{data:[96,78,91,88,94],backgroundColor:[96,78,91,88,94].map(v=>v<85?css('--crit'):v<92?css('--c2'):css('--c3')),borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:60,max:100,ticks:{callback:v=>v+' %'}}}}}),
+  margen:id=>{const st=[['Margen T2',34.6],['Cuero',-3.9],['Reproceso',-1.6],['Descuento',-1.4],['Tallas',-0.6],['Margen T3',27.1]];let acc=34.6;const fl=[],cl=[];
+    st.forEach((s,i)=>{if(i===0||i===st.length-1){fl.push([20,s[1]]);cl.push(css('--c1'))}else{fl.push([+(acc+s[1]).toFixed(1),+acc.toFixed(1)]);acc+=s[1];cl.push(css('--c6'))}});
+    chart(id,{type:'bar',data:{labels:st.map(s=>s[0]),datasets:[{data:fl,backgroundColor:cl,borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{min:20,max:36,ticks:{callback:v=>v+' %'}}}}})},
+  cartera:id=>chart(id,{type:'bar',data:{labels:['El Paso','Pisa Bien','Paso Firme','Andariegos','Central'],datasets:[{label:'Saldo vencido (millones)',data:[82,98,186,71,54],backgroundColor:css('--c6'),borderRadius:4},{label:'Abonado hoy',data:[60,0,0,0,0],backgroundColor:css('--c3'),borderRadius:4}]},options:{scales:{x:{stacked:true},y:{stacked:true}}}}),
+  brisa:id=>chart(id,{type:'line',data:{labels:['24/09','27/09','30/09','03/10','06/10','08/10'],datasets:[{label:'Semanas de cobertura',data:[2.1,1.4,0.9,1.1,4.6,4.2],borderColor:css('--c1'),backgroundColor:css('--c1'),tension:.35,pointRadius:3},{label:'Meta',data:[3,3,3,3,3,3],borderColor:css('--c2'),borderDash:[5,4],pointRadius:0}]}})
+};
+
+// ===================== inicio =====================
+function vHome(){
+  const done=SECTIONS.filter(s=>S.visited.has(s[0])).length;
+  return [`<div class="wrap">
+   <div class="hero"><div class="hero-l"><div class="eyebrow">Jueves 8 de octubre · inicio de jornada</div><h1>Buenos días. <span class="grad">Tu agente ya tiene el día organizado.</span></h1>
+     <p class="lede">Recorre las secciones en orden: primero lo que pasó de noche, luego lo que necesita tu decisión, y después trabaja con el agente a tu lado durante el día.</p>
+     <form class="cmd big" id="bigf"><span class="spark">✦</span><input id="bigi" autocomplete="off" placeholder="¿Qué necesitas hoy? Ej: «informe de ventas por canal del tercer trimestre»" aria-label="Instrucción para el agente"><button class="btn" type="submit">Enviar</button></form></div>
+    <div class="today"><div><span>Esperan tu decisión</span><b>${pendingCount()}</b></div><div><span>Resueltas solas anoche</span><b>4</b></div><div><span>Valor en juego</span><b>$ 554 M</b></div><div><span>Registros revisados</span><b>7.018</b></div>
+     <div class="wide"><span class="live"></span>El agente vigila 8 módulos del ERP. Última revisión hace 2 minutos.</div></div></div>
+   <div class="journey-h"><div><h2>Tu recorrido de hoy</h2><span class="sub">Puedes ir en orden o saltar a lo que necesites</span></div><div class="prog">${done} de ${SECTIONS.length} recorridas<i><b style="width:${done/SECTIONS.length*100}%"></b></i></div></div>
+   <div class="tiles">${SECTIONS.map((s,i)=>`<button class="tile" data-v="${s[0]}" style="--tint:${s[3]}">${S.visited.has(s[0])?'<span class="done">✓</span>':''}<div class="row"><span class="ico">${svg(s[2])}</span><span class="n">${String(i+1).padStart(2,'0')}</span></div><b>${s[1]}</b><p>${s[4]}</p><span class="badge">${badge(s[0])}</span></button>`).join('')}
+    <button class="tile legacy-tile" data-v="erp" style="--tint:#e6e3dc"><div class="row"><span class="ico">${svg('erp')}</span><span class="n">ERP</span></div><b>ERP clásico</b><p>Las pantallas de siempre, con lo que el agente registró marcado.</p><span class="badge"><span class="chip plain">Sigue disponible</span></span></button></div>
+  </div>`,()=>{document.querySelectorAll('.tile').forEach(t=>t.onclick=()=>go(t.dataset.v));$('#bigf').onsubmit=e=>{e.preventDefault();command($('#bigi').value)}}];
+}
+
+// ===================== mientras no estabas =====================
+function vBrief(){
+  const night=[['22:14','Revisó el cierre del día','1.912 pares vendidos en 6 tiendas, online y mayoristas.',''],['23:40','Detectó quiebre de tallas en el Nova Flex','Abrió un caso y armó un plan de 4 acciones.','det'],['00:48','Detectó 5 mayoristas con más de 30 días','Tu regla permite cobrar sin aprobación.','det'],['01:05','Envió 5 recordatorios de cobro','Acción autónoma registrada en la bitácora.','auto'],['02:12','Detectó la planta bajo el plan','Cruzó producción, nómina y activos.','det'],['02:30','Abrió mantenimiento urgente de 2 máquinas de poste','Y reprogramó una entrega dentro de tus límites.','auto'],['03:12','Detectó caída de margen en la bota Andes','Encontró 4 causas y preparó 3 correcciones.','det'],['05:50','Verificó un resultado','Calzado El Paso abonó $ 60 M después del recordatorio.','ver'],['06:20','Preparó este resumen y el informe diario de ventas','','']];
+  const need=MIS.filter(m=>m.stage===3);
+  return [`<div class="wrap"><div><div class="eyebrow">Paso 1 · Turno nocturno, 22:00 a 06:30</div><h1>Esto pasó mientras no estabas</h1>
+    <p class="lede">El agente revisó toda la operación durante la noche, resolvió lo que tus reglas le permiten y dejó listo lo que necesita tu decisión.</p></div>
+    <div class="stats"><div class="stat"><span>Registros revisados</span><b>7.018</b><small>facturas, OP, inventario, nómina</small></div><div class="stat"><span>Situaciones detectadas</span><b>5</b><small>en 4 áreas</small></div><div class="stat"><span>Resueltas solo</span><b>4</b><small>dentro de tus reglas</small></div><div class="stat accent"><span>Esperan tu decisión</span><b>${need.length}</b><small>con plan listo</small></div><div class="stat"><span>Valor en juego</span><b>$ 554 M</b><small>venta en riesgo y cartera</small></div></div>
+    <div class="night"><div class="panel"><div class="panel-h"><h2>Lo que hizo el agente</h2><span class="sub">Cada acción queda en la bitácora</span></div>
+        <ol class="tl">${night.map(n=>`<li><time>${n[0]}</time><span class="dot ${n[3]}"></span><p>${n[1]}${n[2]?`<small>${n[2]}</small>`:''}</p></li>`).join('')}</ol></div>
+      <div class="panel"><div class="panel-h"><h2>Necesitan tu decisión</h2></div><div class="decide">${need.length?need.map(m=>`<button class="dcard" data-m="${m.id}"><div class="row"><span class="chip ${m.sev}">${m.area}</span><span class="tag">${m.detected}</span></div><b>${m.title}</b><span class="sub">${m.actions.length} acciones preparadas · ${m.impact} ${m.impactL}</span></button>`).join(''):'<p class="sub">Nada pendiente. Todo lo detectado ya tiene decisión.</p>'}</div></div></div></div>`,
+  ()=>{document.querySelectorAll('.dcard').forEach(b=>b.onclick=()=>go('mis',b.dataset.m))}];
+}
+
+// ===================== misiones =====================
+const sevVar={crit:'var(--crit)',warn:'var(--warn)',ok:'var(--ok)'};
+const miniSteps=m=>`<div class="mini-steps">${STAGES.map((_,i)=>`<i class="${i<m.stage?'d':i===m.stage?'c':''}"></i>`).join('')}</div>`;
+const mItem=x=>`<button class="mitem ${x.id===S.mission?'on':''}" data-m="${x.id}" style="--sev:${sevVar[x.sev]}"><div class="row"><span class="chip ${x.stc}">${x.status}</span><span class="tag">${x.detected}</span></div><b>${x.title}</b><span class="imp">${x.area}</span>${miniSteps(x)}</button>`;
+function vMis(){
+  const m=MIS.find(x=>x.id===S.mission);
+  return [`<div class="wrap"><div><div class="eyebrow">Paso 2 · Lo que necesita tu decisión</div><h1>Pendientes por resolver</h1><p class="lede">Problemas que el agente encontró solo. Para cada uno trae la causa y un plan; cuando lo apruebas, lo ejecuta en el ERP y luego revisa que haya funcionado.</p></div>
+  <div class="mis"><div class="mlist" id="mlist">${MIS.map(mItem).join('')}</div><div id="mdetail">${detail(m)}</div></div></div>`,()=>{bindMis();postDetail(m)}];
+}
+const stepper=m=>STAGES.map((s,i)=>`<div class="st ${i<m.stage?'d':i===m.stage?'c':''}"><b>${s}</b><small>${m.stageNotes[i]}</small></div>`).join('');
+function detail(m){
+  const lim=S.rules;
+  const autoNote=m.id==='m1'?(lim.op==='a'&&lim.opLim>=640?'Con tus reglas actuales, el agente puede crear esta orden sin pedirte permiso.':`Tus reglas permiten órdenes autónomas hasta ${fmt(lim.opLim)} pares. Esta es de 640, por eso pide tu aprobación.`):m.id==='m3'?'Los cambios de precio están en «Solo sugerir». El agente prepara la decisión, pero solo tú la tomas.':'';
+  const pend=m.actions.some(a=>a.state==='pend');
+  return `<div class="col"><div class="panel"><div class="mhead"><div><div class="eyebrow">${m.area} · detectada ${m.detected}</div><h1>${m.title}</h1></div><div class="impact ${m.sev==='ok'?'okc':''}"><b>${m.impact}</b><span>${m.impactL}</span></div></div>
+     <p class="lede">${m.lede}</p><div class="stepper">${stepper(m)}</div></div>
+   <div class="mbody"><div class="col">
+     <div class="panel"><div class="panel-h"><h2>Evidencia</h2><span class="sub">Datos tomados de ${m.path.length} módulos</span></div><div class="cv"><canvas id="mch"></canvas></div><ul class="find">${m.findings.map(f=>`<li><span class="tag">${MOD[f[0]]}</span><span>${f[1]}</span></li>`).join('')}</ul></div>
+     <div class="panel"><div class="panel-h"><h2>Plan del agente</h2><span class="sub" id="pcount">${m.actions.filter(a=>a.state==='done').length} de ${m.actions.length} ejecutadas</span></div>
+       <div class="actions" id="acts">${m.actions.map((a,i)=>actionRow(a,i)).join('')}</div>
+       ${pend?`<div class="btns" id="mbtns"><button class="btn" id="approve">${m.id==='m3'?'Aplicar decisiones':'Aprobar y ejecutar'}</button><button class="btn sec" id="adjust">Ajustar plan</button></div>`:''}
+       ${autoNote&&pend?`<p class="note" id="anote">${autoNote}</p>`:''}<p class="note" id="verify">${m.stage>=5?'':'Después de ejecutar: '}${m.verify}</p></div></div>
+    <div class="col"><div class="panel map"><div class="panel-h"><h2>Recorrido por el ERP</h2><button class="lnk" id="replay">Repetir diagnóstico</button></div>${mapSvg()}<ul class="mlog" id="mlog">${m.mlog.map(l=>`<li><time>${l[0]}</time><span>${l[1]}</span></li>`).join('')}</ul></div></div></div></div>`;
+}
+function actionRow(a,i){const lv=a.lv?S.rules[a.lv]:'a';const label=a.state==='done'?'Ejecutada':a.state==='rev'?'Revertida':LVL[lv];
+  return `<div class="action ${a.state}" data-i="${i}"><span class="ck">${a.state==='rev'?'↺':'✓'}</span><p>${a.t}<small>Módulo: ${MOD[a.m]}</small></p><span class="chip ${a.state==='done'?'ok':a.state==='rev'?'warn':LVLC[lv]}">${label}</span></div>`}
+function bindMis(){$('#mlist').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{S.mission=b.dataset.m;clearCharts();$('#mlist').querySelectorAll('.mitem').forEach(x=>x.classList.toggle('on',x===b));const m=MIS.find(x=>x.id===S.mission);$('#mdetail').innerHTML=detail(m);postDetail(m);countUp($('#mdetail'))})}
+function refreshList(){const l=$('#mlist');if(l){l.innerHTML=MIS.map(mItem).join('');bindMis()}renderTabs()}
+function postDetail(m){CH[m.chart]('mch');const ap=$('#approve');if(ap)ap.onclick=()=>execute(m);const ad=$('#adjust');if(ad)ad.onclick=()=>toast('En la versión conectada puedes editar cada acción o pedirle al agente otra alternativa.');$('#replay').onclick=()=>diagnose(m,true);if(!m.played){m.played=true;diagnose(m)}}
+const onMission=id=>S.view==='mis'&&S.mission===id;
+function mlog(m,txt){const t=now();m.mlog.push([t,txt]);const ul=$('#mlog');if(ul&&onMission(m.id)){const li=document.createElement('li');li.className='new';li.innerHTML=`<time>${t}</time><span>${txt}</span>`;ul.appendChild(li);ul.scrollTop=ul.scrollHeight}}
+const NODES=['ventas','inventario','produccion','compras','finanzas','cartera','nomina','activos'];
+function nodePos(i){const a=-Math.PI/2+i*Math.PI*2/8;return[200+150*Math.cos(a),140+100*Math.sin(a)]}
+function mapSvg(){return `<svg viewBox="0 0 400 280" role="img" aria-label="Módulos del ERP conectados al agente">${NODES.map((n,i)=>{const[x,y]=nodePos(i);return `<line class="edge" id="e-${n}" x1="200" y1="140" x2="${x}" y2="${y}"/>`}).join('')}
+   <g class="core"><circle class="r" cx="200" cy="140" r="34"><animate attributeName="r" values="28;40;28" dur="3s" repeatCount="indefinite"/></circle><circle class="b" cx="200" cy="140" r="26"/><text x="200" y="144" text-anchor="middle">Agente</text></g>
+   ${NODES.map((n,i)=>{const[x,y]=nodePos(i);const w=MOD[n].length*6.8+20;return `<g class="node" id="n-${n}"><rect x="${x-w/2}" y="${y-13}" width="${w}" height="26" rx="13"/><text x="${x}" y="${y+4}" text-anchor="middle">${MOD[n]}</text></g>`}).join('')}<g id="packets"></g></svg>`}
+function pulse(mod,back){return new Promise(res=>{const i=NODES.indexOf(mod),g=$('#packets');if(i<0||!g){res();return}
+  const[x,y]=nodePos(i),e=$('#e-'+mod),nd=$('#n-'+mod);e.classList.add('hot');nd.classList.add('hot');
+  const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('r','4.5');c.setAttribute('class','packet');g.appendChild(c);
+  const t0=performance.now(),dur=reduced?1:650,from=back?[x,y]:[200,140],to=back?[200,140]:[x,y];
+  (function step(t){const k=Math.min(1,(t-t0)/dur),q=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;c.setAttribute('cx',from[0]+(to[0]-from[0])*q);c.setAttribute('cy',from[1]+(to[1]-from[1])*q);
+    if(k<1)requestAnimationFrame(step);else{c.remove();setTimeout(()=>{e.classList.remove('hot');nd.classList.remove('hot')},500);res()}})(t0)})}
+async function diagnose(m,replay){if(replay){m.mlog=[];const ul=$('#mlog');if(ul)ul.innerHTML=''}
+  for(let i=0;i<m.path.length;i++){if(!onMission(m.id))return;await pulse(m.path[i]);mlog(m,`Leyó ${MOD[m.path[i]]}: ${m.findings[i]?m.findings[i][1].split('.')[0]:'datos de apoyo'}`);await pulse(m.path[i],true)}
+  if(onMission(m.id))mlog(m,`Plan de ${m.actions.length} ${m.actions.length===1?'acción':'acciones'} listo`)}
+async function execute(m){
+  $('#approve').disabled=true;const ad=$('#adjust');if(ad)ad.disabled=true;
+  m.stage=4;m.status='Ejecutando';m.stc='info';refreshList();upStepper(m);mlog(m,'Gerencia aprobó el plan');
+  for(let i=0;i<m.actions.length;i++){const a=m.actions[i];if(a.state!=='pend')continue;
+    a.state='run';reRow(m,i);await pulse(a.m);a.run();await wait(350);a.state='done';reRow(m,i);
+    const pc=$('#pcount');if(pc&&onMission(m.id))pc.textContent=`${m.actions.filter(x=>x.state==='done').length} de ${m.actions.length} ejecutadas`;
+    addLog(a.t,a.m,m.title,'Aprobado por gerencia',{mid:m.id,ai:i});mlog(m,`Ejecutó en ${MOD[a.m]}: ${a.t.split(':')[0]}`);await pulse(a.m,true)}
+  m.stage=5;m.status='Verificando';m.stc='info';m.stageNotes[3]='Aprobado hoy';m.stageNotes[4]='Hecho';refreshList();upStepper(m);
+  if(!onMission(m.id))return;
+  $('#verify').innerHTML='<b>Plan ejecutado.</b> '+m.verify;const an=$('#anote');if(an)an.remove();
+  $('#mbtns').innerHTML='<button class="btn sec" id="seeerp">Ver los cambios en el ERP clásico</button><button class="btn sec" id="seelog">Ver bitácora</button>';
+  $('#seeerp').onclick=()=>{S.legacy.legTab=m.id==='m3'?'ref':'op';go('erp')};$('#seelog').onclick=()=>go('log');
+  toast(`Listo. Acciones ejecutadas en ${new Set(m.actions.map(a=>a.m)).size} módulos sin abrir ninguna pantalla.`)}
+function reRow(m,i){const el=document.querySelector(`#acts [data-i="${i}"]`);if(el&&onMission(m.id))el.outerHTML=actionRow(m.actions[i],i)}
+function upStepper(m){const st=document.querySelector('.stepper');if(st&&onMission(m.id))st.innerHTML=stepper(m)}
+
+// ===================== durante la jornada =====================
+const EVENTS=[
+ {t:'08:12',k:'auto',h:'Entró el pedido web W-8841 por 3 pares',p:'Validó el pago, reservó el inventario y generó la guía de despacho.',m:'ventas'},
+ {t:'08:47',k:'ask',h:'Distribuidora Pasos pide 2.400 pares',p:'Cupo de crédito disponible. Faltan 300 pares de talla 38 del Nova Flex. Propone despachar hoy 2.100 y el resto con la OP-1846.',m:'ventas',acts:['Aprobar despacho parcial','Ver pedido'],ok:'Despacho parcial aprobado. Se generó la remisión y se avisó al cliente.'},
+ {t:'09:20',k:'auto',h:'Corte reporta 8 % más cuero del estándar en la OP-1843',p:'Comparó con las 5 órdenes anteriores, abrió una alerta a calidad y pidió revisar el troquel #3.',m:'produccion'},
+ {t:'10:05',k:'info',h:'La tienda Ventura vende 40 % menos que la semana pasada',p:'Cruzó ventas y existencias: no tiene tallas 37 a 39 del Nova Flex. La incluyó en el traslado del caso de tallas.',m:'inventario'},
+ {t:'10:40',k:'ask',h:'Calzado El Paso pide liberar su pedido retenido',p:'Abonó $ 60 M esta mañana. Le quedan $ 82 M a 74 días. Tu regla dice que liberar despachos en mora requiere tu aprobación.',m:'cartera',acts:['Liberar pedido','Mantener retenido'],ok:'Pedido liberado. El agente pidió al cliente un compromiso de pago para el 20/10.'},
+ {t:'11:15',k:'auto',h:'Insumos Calzacol confirmó la nota crédito',p:'Registró la nota por $ 4,2 M y la aplicó a la factura pendiente del proveedor.',m:'compras'},
+ {t:'12:02',k:'ask',h:'3 operarios de soladura con horas extra toda la semana',p:'Soladura va al 88 % y corte al 96 %. Propone mover un operario de corte a soladura el resto de la semana.',m:'nomina',acts:['Aprobar cambio','Hablar con el jefe de planta'],ok:'Cambio aprobado y notificado al jefe de planta y al operario.'},
+ {t:'14:30',k:'auto',h:'Ventas del día al 62 % de la meta a las 2:30 p. m.',p:'Ritmo normal para un jueves. Online va 18 % por encima del promedio.',m:'ventas'}];
+const dayState={shown:0,auto:0,ask:0,decided:{}};
+function evHtml(e,i){const chip=e.k==='auto'?'<span class="chip ok">Resuelto solo</span>':e.k==='ask'?'<span class="chip warn">Te consulta</span>':'<span class="chip info">Te informa</span>';const dec=dayState.decided[i];
+  return `<div class="ev ${e.k==='ask'&&!dec?'ask':''}" data-i="${i}"><time>${e.t}</time><div><b>${e.h}</b><p>${e.p}</p><div class="who">${chip}<span class="tag">${MOD[e.m]}</span>${e.acts&&!dec?e.acts.map((a,k)=>`<button class="btn ${k?'sec':''} sm" data-k="${k}">${a}</button>`).join(''):''}${dec?`<span class="sub">✓ ${dec}</span>`:''}</div></div></div>`}
+function vDay(){
+  return [`<div class="wrap"><div><div class="eyebrow">Paso 3 · En vivo durante el día</div><h1>El agente trabaja a tu lado</h1>
+   <p class="lede">Mientras el equipo opera el ERP, el agente escucha cada evento: pedidos, reportes de planta, pagos, marcaciones. Resuelve lo que puede, te consulta lo que debe y te avisa lo que conviene saber.</p></div>
+   <div class="day"><div class="feed" id="feed"></div><div class="side-stack">
+     <div class="panel"><div class="panel-h"><h2>Hoy hasta ahora</h2><span class="sub" id="dclock"></span></div><div class="counter"><div><span>Resueltos solos</span><b id="cA">0</b></div><div><span>Te consultó</span><b id="cQ">0</b></div></div></div>
+     <div class="panel"><h2 style="margin-bottom:10px">Qué hace el agente en la jornada</h2><ul class="how">
+      <li><span>1</span><p>Reacciona a cada evento<small>Un pedido grande dispara la revisión de cupo, stock y fecha de entrega en segundos.</small></p></li>
+      <li><span>2</span><p>Acompaña cada pantalla<small>En el ERP clásico ve lo que estás mirando y te advierte lo que no se ve en esa pantalla.</small></p></li>
+      <li><span>3</span><p>Consulta en el momento<small>Si algo supera tus reglas, te pregunta con el contexto y las opciones listas.</small></p></li>
+      <li><span>4</span><p>Hace el trabajo repetitivo<small>Guías, notas crédito, conciliaciones y recordatorios sin que nadie los digite.</small></p></li></ul></div></div></div></div>`,runDay];
+}
+async function runDay(){
+  const tok=viewToken,feed=$('#feed');
+  const draw=()=>{feed.innerHTML=EVENTS.slice(0,dayState.shown).map((e,i)=>evHtml(e,i)).reverse().join('');bindEv();$('#cA').textContent=dayState.auto;$('#cQ').textContent=dayState.ask;$('#dclock').textContent=dayState.shown?'Hora simulada '+EVENTS[dayState.shown-1].t:'Inicio de jornada'};
+  draw();
+  while(dayState.shown<EVENTS.length){
+    const ty=document.createElement('div');ty.className='typing';ty.innerHTML='<i></i><i></i><i></i>&nbsp;El agente procesa un evento nuevo';feed.prepend(ty);
+    await wait(dayState.shown?3600:1200);if(tok!==viewToken)return;
+    const e=EVENTS[dayState.shown];dayState.shown++;if(e.k==='ask')dayState.ask++;else dayState.auto++;
+    if(e.k==='auto')addLog(e.p.split('.')[0],e.m,e.h,'Regla autónoma');
+    draw();
+  }
+}
+function bindEv(){document.querySelectorAll('.ev [data-k]').forEach(b=>b.onclick=()=>{const card=b.closest('.ev'),i=+card.dataset.i,e=EVENTS[i],k=+b.dataset.k;
+  if(k===0){dayState.decided[i]=e.ok;addLog(e.acts[0]+': '+e.h,e.m,e.p.split('.')[0],'Aprobado por gerencia');toast(e.ok)}else dayState.decided[i]='Decisión: '+e.acts[1].toLowerCase();
+  card.outerHTML=evHtml(e,i);bindEv()})}
+
+// ===================== reportes =====================
+const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep'];
+const VENTAS=[1240,1180,1395,1310,1520,1465,1390,1610,1705];
+const CANALES=['Mayoristas','Tiendas propias','Online','Exportación'];
+const LINEAS=['Tenis','Botas y botines','Sandalias','Tacón y formal','Escolar'];
+const LSH=[[.30,.22,.14,.12,.22],[.34,.18,.16,.22,.10],[.44,.12,.20,.18,.06],[.26,.38,.10,.16,.10]];
+const PRECIO=[145000,240000,85000,165000,110000],MARG=[38.1,29.4,41.0,38.8,31.0];
+const cshare=m=>{const o=.12+.006*m,ma=.46-.004*m,t=.31-.001*m;return[ma,t,o,1-ma-t-o]};
+const FACT=[];MESES.forEach((_,m)=>{const cs=cshare(m);CANALES.forEach((_,c)=>LINEAS.forEach((_,l)=>{const v=VENTAS[m]*cs[c]*LSH[c][l]*(1+((m*7+c*3+l*5)%9-4)/120);FACT.push({m,c,l,v,p:v*1e6/PRECIO[l]})}))});
+const PER={'Año (Ene–Sep)':[0,8],'Trimestre 1':[0,2],'Trimestre 2':[3,5],'Trimestre 3':[6,8]};
+const REPS=[{id:'ventas',t:'Ventas por canal y línea',d:'Filtros vivos por periodo, canal y línea',c:['--c1','--c5','--c1','--c3','--c1']},{id:'prod',t:'Producción y eficiencia de planta',d:'Plan vs real, procesos y reprocesos',c:['--c3','--c3','--c2','--c3','--c3']},{id:'cartera',t:'Cartera por edades y ciudad',d:'Vencimientos, clientes y recaudo',c:['--c3','--c5','--c2','--c6','--c6']},{id:'rent',t:'Rentabilidad por referencia',d:'Margen, volumen y precio por par',c:['--c4','--c4','--c6','--c4','--c5']}];
+const RS={rep:'ventas',per:'Año (Ene–Sep)',can:'Todos',lin:'Todas'};
+function vRep(){
+  return [`<div class="wrap"><div><div class="eyebrow">Paso 4 · Informes al instante</div><h1>Reportes que el agente arma por ti</h1>
+   <p class="lede">Pide un informe con una frase o elige uno de la galería. El agente consulta los módulos, construye el modelo y diseña el tablero. Los filtros y los gráficos responden al clic, como en Power BI.</p></div>
+   <form class="cmd" id="repf" style="max-width:none;background:var(--surface)"><span class="spark">✦</span><input id="repi" autocomplete="off" placeholder="Ej: «ventas online del tercer trimestre» o «cómo va la cartera por ciudad»" aria-label="Pedir un informe"><button class="btn sm" type="submit">Generar informe</button></form>
+   <div class="repgal">${REPS.map(r=>`<button class="rcard ${RS.rep===r.id?'on':''}" data-r="${r.id}"><div class="thumb">${r.c.map((c,i)=>`<i style="--c:var(${c});height:${[55,80,40,95,65][i]}%"></i>`).join('')}</div><b>${r.t}</b><span class="sub">${r.d}</span></button>`).join('')}</div>
+   <div id="repout"></div></div>`,()=>{document.querySelectorAll('.rcard').forEach(b=>b.onclick=()=>genReport(b.dataset.r));
+    $('#repf').onsubmit=e=>{e.preventDefault();const q=$('#repi').value;if(q.trim()){reportFromText(q);$('#repi').value=''}};drawReport()}];
+}
+function reportFromText(q){
+  const t=norm(q);let id=null;
+  if(/produc|planta|eficien|reproceso/.test(t))id='prod';else if(/cartera|cobr|vencid|deud/.test(t))id='cartera';else if(/margen|rentab|referencia/.test(t))id='rent';else if(/venta|canal|linea|online|mayorist|tienda|export|factur/.test(t))id='ventas';
+  if(!id){toast('En esta demo el agente genera informes de ventas, producción, cartera y rentabilidad. En la versión conectada arma cualquiera.');return}
+  if(id==='ventas'){RS.per=/tercer|t3|julio|agosto|septiembre/.test(t)?'Trimestre 3':/segundo|t2/.test(t)?'Trimestre 2':/primer|t1/.test(t)?'Trimestre 1':'Año (Ene–Sep)';
+    RS.can=/online|web|digital/.test(t)?'Online':/mayorist/.test(t)?'Mayoristas':/tienda/.test(t)?'Tiendas propias':/export/.test(t)?'Exportación':'Todos';
+    RS.lin=LINEAS.find(l=>t.includes(norm(l).split(' ')[0]))||'Todas'}
+  genReport(id,true);
+}
+async function genReport(id,keep){
+  const tok=viewToken;RS.rep=id;if(!keep&&id==='ventas'){RS.per='Año (Ene–Sep)';RS.can='Todos';RS.lin='Todas'}
+  document.querySelectorAll('.rcard').forEach(b=>b.classList.toggle('on',b.dataset.r===id));
+  clearCharts();const out=$('#repout');
+  const steps=['Entendió la solicitud','Consultó Ventas, Producción, Cartera y Contabilidad','Construyó el modelo de datos','Diseñó los visuales y la narrativa'];
+  out.innerHTML=`<div class="gen"><b>Generando «${REPS.find(r=>r.id===id).t}»</b><ul class="trace">${steps.map(s=>`<li>${s}</li>`).join('')}</ul></div>`;
+  out.scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});
+  for(const li of out.querySelectorAll('li')){li.className='run';await wait(420);if(tok!==viewToken)return;li.className='done'}
+  drawReport();
+}
+const filt=()=>{const[a,b]=PER[RS.per];return FACT.filter(f=>f.m>=a&&f.m<=b&&(RS.can==='Todos'||CANALES[f.c]===RS.can)&&(RS.lin==='Todas'||LINEAS[f.l]===RS.lin))};
+const sum=(a,k)=>a.reduce((s,x)=>s+x[k],0);
+let REPORT=null;
+function shell(title,slicers,body,pages){return `<div class="canvas"><div class="rbar"><div><h2>${title}</h2><span class="meta">Generado por el agente · ${hhmm()} · fuente: ERP Nova en vivo</span></div>
+   <div class="btns" style="margin:0"><button class="btn sec sm" data-ra="prog">Programar envío semanal</button><button class="btn sec sm" data-ra="ask">Preguntarle al informe</button><button class="btn sm" data-ra="pdf"><svg viewBox="0 0 20 20" width="14" height="14" style="vertical-align:-2px;margin-right:6px"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 16.5h12" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Descargar PDF</button></div></div>
+   ${slicers?`<div class="slicers">${slicers}</div>`:''}<div class="rgrid">${body}</div><div class="pages">${pages.map((p,i)=>`<span class="${i?'':'on'}">${p}</span>`).join('')}</div></div>`}
+const vis=(cls,title,inner,hint)=>`<div class="vis ${cls}"><h3>${title}${hint?`<em>${hint}</em>`:''}</h3>${inner}</div>`;
+const kpiV=(t,v,d,dir)=>vis('s3',t,`<div class="kv">${v}</div><div class="kd ${dir}">${d}</div>`);
+const kpiRow=k=>k.map(x=>kpiV(...x)).join('');
+const sel=(id,label,opts,cur)=>`<div class="slicer"><label for="${id}">${label}</label><select id="${id}">${opts.map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('')}</select></div>`;
+const PRIO={Alta:'crit',Media:'warn',Baja:'info'};
+function readRecs(lect,recs){
+  return vis('s12','Lectura y recomendaciones del agente',`<div class="lr"><div class="lect"><h4>Lectura</h4>${lect.map(p=>`<p>${p}</p>`).join('')}</div>
+   <div class="recs"><h4>Recomendaciones</h4><ol>${recs.map(r=>`<li><div class="rt"><b>${r.t}</b><span class="chip ${PRIO[r.p]}">Prioridad ${r.p.toLowerCase()}</span></div><p>${r.w}</p><div class="rm"><span>Impacto: ${r.i}</span><span>Responsable: ${r.o}</span></div></li>`).join('')}</ol></div></div>`,'escrito por el agente con los datos del informe');
+}
+function drawReport(){clearCharts();const out=$('#repout');if(!out)return;({ventas:repVentas,prod:repProd,cartera:repCartera,rent:repRent})[RS.rep](out);countUp(out);
+  out.querySelectorAll('[data-ra]').forEach(b=>b.onclick=()=>{const a=b.dataset.ra;
+    if(a==='prog')toast('Programado: este informe llegará a gerencia cada lunes a las 7:00 a. m., con los datos de la semana.');
+    else if(a==='pdf')downloadPDF(b);
+    else{const i=$('#repi');i.placeholder='Pregúntale al informe: «¿por qué cayeron las tiendas en agosto?»';i.focus()}})}
+
+function repVentas(out){
+  const F=filt(),v=sum(F,'v'),p=sum(F,'p'),mg=F.reduce((s,x)=>s+x.v*MARG[x.l],0)/(v||1),[a,b]=PER[RS.per];
+  const filtered=RS.per!=='Año (Ene–Sep)'||RS.can!=='Todos'||RS.lin!=='Todas';
+  const Fp=FACT.filter(f=>f.m>=a&&f.m<=b),byL=LINEAS.map((_,l)=>sum(Fp.filter(x=>x.l===l&&(RS.can==='Todos'||CANALES[x.c]===RS.can)),'v')),byC=CANALES.map((_,c)=>sum(Fp.filter(x=>x.c===c&&(RS.lin==='Todas'||LINEAS[x.l]===RS.lin)),'v'));
+  const months=MESES.slice(a,b+1),mi=months.map((_,k)=>a+k);
+  const mv=m=>sum(F.filter(f=>f.m===m),'v');const topL=byL.indexOf(Math.max(...byL)),bestM=mi.reduce((x,y)=>mv(y)>mv(x)?y:x,mi[0]);
+  const totL=byL.reduce((x,y)=>x+y,0)||1,onShare=byC[2]/(byC.reduce((x,y)=>x+y,0)||1)*100,mayShare=byC[0]/(byC.reduce((x,y)=>x+y,0)||1)*100;
+  const metaPer=VENTAS.slice(a,b+1).reduce((x,y)=>x+y,0)/1.015;
+  const mx=FACT.filter(f=>f.m>=a&&f.m<=b),cell=(c,l)=>sum(mx.filter(x=>x.c===c&&x.l===l),'v'),maxCell=Math.max(...CANALES.flatMap((_,c)=>LINEAS.map((_,l)=>cell(c,l))));
+  const PT={'Año (Ene–Sep)':'De enero a septiembre','Trimestre 1':'En el primer trimestre','Trimestre 2':'En el segundo trimestre','Trimestre 3':'En el tercer trimestre'};
+  const scope=`${PT[RS.per]}${RS.can!=='Todos'?`, en el canal ${RS.can}`:''}${RS.lin!=='Todas'?`, línea ${RS.lin}`:''}`;
+  const lect=[`<b>${scope}</b> se vendieron <b>$ ${fmt(v)} M</b> en <b>${fmt(p)} pares</b>, con margen bruto de <b>${fmt1(mg)} %</b>${mg<35?', por debajo de la meta de 35 %':', por encima de la meta de 35 %'}.`,
+   `${RS.lin==='Todas'?`La línea que más vende es <b>${LINEAS[topL]}</b> (${fmt1(byL[topL]/totL*100)} % de la venta). `:''}El mejor mes fue <b>${MESES[bestM]}</b>${RS.can==='Todos'&&RS.lin==='Todas'?` y la empresa va 1,5 % por encima de la meta acumulada`:''}.`,
+   RS.can==='Todos'?`Online ya pesa <b>${fmt1(onShare)} %</b> de la venta y es el canal que más crece; mayoristas sigue siendo el más grande con ${fmt1(mayShare)} %, pero también es el que concentra la cartera vencida.`:`El canal ${RS.can} representa el ${fmt1(byC[CANALES.indexOf(RS.can)]/(Fp.filter(x=>RS.lin==='Todas'||LINEAS[x.l]===RS.lin).reduce((s,x)=>s+x.v,0)||1)*100)} % de la venta del periodo.`];
+  const recs=[];
+  if(RS.can==='Todos'||RS.can==='Online'||RS.can==='Tiendas propias')recs.push({t:'Asegurar inventario de tallas 37 a 39 del Nova Flex para online y tiendas',w:'Son los canales que más crecen y el tenis más vendido está en quiebre en esas tallas. Ya hay un caso abierto con la orden de producción propuesta.',i:'Proteger cerca de $ 128 M de venta en 4 semanas',o:'Producción y comercial',p:'Alta'});
+  if(RS.lin==='Todas'||RS.lin==='Botas y botines')recs.push({t:'Ajustar el precio de la bota Andes y revisar descuentos de temporada',w:'Botas y botines es la línea de menor margen (29,4 %) y la bota Andes perdió 7,5 puntos por el alza del cuero sin traslado a precio.',i:'Recuperar entre 1,5 y 2 puntos de margen en la línea',o:'Gerencia comercial',p:'Alta'});
+  if(RS.can==='Todos'||RS.can==='Mayoristas')recs.push({t:'Condicionar despachos a mayoristas con más de 60 días de mora',w:`Mayoristas es el ${fmt1(mayShare)} % de la venta, pero concentra $ 366 M vencidos. Vender más a quien no paga aumenta el gasto financiero.`,i:'Liberar caja y bajar los días de cobro hacia la meta de 40',o:'Cartera',p:'Media'});
+  recs.push({t:'Mover la pauta digital de noviembre hacia Tenis y Sandalias',w:'Son las líneas con mejor combinación de margen (38 % y 41 %) y rotación; ayudan a subir el margen promedio sin bajar volumen.',i:'Mejor mezcla de margen en temporada',o:'Mercadeo',p:'Media'});
+  const kpis=[['Ventas','$ '+fmt(v)+' M','▲ 11,8 % vs 2025','up'],['Pares vendidos',fmt(p),'▲ 8,9 % vs 2025','up'],['Margen bruto',fmt1(mg)+' %',mg<35?'▼ bajo la meta de 35 %':'▲ sobre la meta de 35 %',mg<35?'down':'up'],['Precio por par','$ '+fmt(v*1e6/(p||1)),'▲ 2,7 %','up']];
+  REPORT={title:'Ventas por canal y línea',filters:`Periodo: ${RS.per} · Canal: ${RS.can} · Línea: ${RS.lin}`,kpis,lect,recs,file:'Informe_Ventas_Grupo_Nova'};
+  out.innerHTML=shell('Ventas por canal y línea',
+   sel('sPer','Periodo',Object.keys(PER),RS.per)+sel('sCan','Canal',['Todos',...CANALES],RS.can)+sel('sLin','Línea',['Todas',...LINEAS],RS.lin)+(filtered?`<button class="lnk" id="clr" style="margin-bottom:8px">Limpiar filtros</button>`:''),
+   kpiRow(kpis)+
+   vis('s8','Ventas por mes y canal','<div class="cv"><canvas id="r1"></canvas></div>','COP millones')+vis('s4','Ventas por línea','<div class="cv"><canvas id="r2"></canvas></div>','clic para filtrar')+
+   vis('s4','Ventas por canal','<div class="cv"><canvas id="r3"></canvas></div>','clic para filtrar')+
+   vis('s8','Matriz canal × línea',`<div class="matrix"><table><tr><th>Canal</th>${LINEAS.map(l=>`<th>${l}</th>`).join('')}<th>Total</th></tr>${CANALES.map((cn,c)=>`<tr><td>${cn}</td>${LINEAS.map((_,l)=>{const x=cell(c,l);return `<td style="background:color-mix(in srgb,var(--c1) ${Math.round(x/maxCell*50)}%,transparent)">${fmt(x)}</td>`}).join('')}<td>${fmt(LINEAS.reduce((s,_,l)=>s+cell(c,l),0))}</td></tr>`).join('')}<tr class="tot"><td>Total</td>${LINEAS.map((_,l)=>`<td>${fmt(CANALES.reduce((s,_,c)=>s+cell(c,l),0))}</td>`).join('')}<td>${fmt(sum(mx,'v'))}</td></tr></table></div>`,'COP millones · periodo elegido')+
+   readRecs(lect,recs),['Resumen','Canales','Referencias','Detalle']);
+  const pal=PAL();
+  chart('r1',{type:'bar',data:{labels:months,datasets:CANALES.map((cn,c)=>({label:cn,data:mi.map(m=>Math.round(sum(F.filter(x=>x.m===m&&x.c===c),'v'))),backgroundColor:pal[c],borderRadius:3}))},options:{scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true}}}});
+  chart('r2',{type:'doughnut',data:{labels:LINEAS,datasets:[{data:byL.map(Math.round),backgroundColor:LINEAS.map((L,i)=>RS.lin==='Todas'||RS.lin===L?pal[i]:css('--line')),borderColor:'#fff',borderWidth:2}]},options:{cutout:'60%',onClick:(e,el)=>{if(el.length){const L=LINEAS[el[0].index];RS.lin=RS.lin===L?'Todas':L;drawReport()}}}});
+  chart('r3',{type:'bar',data:{labels:CANALES,datasets:[{data:byC.map(Math.round),backgroundColor:CANALES.map((cn,i)=>RS.can==='Todos'||RS.can===cn?pal[i]:css('--line')),borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},onClick:(e,el)=>{if(el.length){const C=CANALES[el[0].index];RS.can=RS.can===C?'Todos':C;drawReport()}}}});
+  [['sPer','per'],['sCan','can'],['sLin','lin']].forEach(([id,k])=>$('#'+id).onchange=e=>{RS[k]=e.target.value;drawReport()});
+  const c=$('#clr');if(c)c.onclick=()=>{RS.per='Año (Ene–Sep)';RS.can='Todos';RS.lin='Todas';drawReport()};
+}
+function repProd(out){
+  const kpis=[['Pares fabricados · 5 sem.','20.720','Plan: 22.200','down'],['Cumplimiento','93,3 %','Meta: 98 %','down'],['Proceso más lento','Guarnición','78 % de eficiencia','down'],['Reproceso','3,8 %','▲ 1,1 pp','down']];
+  const lect=['La planta produjo <b>1.480 pares menos</b> de lo planeado en las últimas 5 semanas (93,3 % de cumplimiento frente a una meta de 98 %).','El cuello de botella es <b>guarnición</b>, al 78 % de eficiencia: le faltan 6 operarias esta semana y 2 máquinas de poste están detenidas. Montaje recibe los cortes cosidos con un día de atraso.','El reproceso subió a <b>3,8 %</b> y la causa principal es el <b>despegue de suela</b>, que empezó con el cambio de pegante en agosto.'];
+  const recs=[{t:'Recuperar la capacidad de guarnición esta semana',w:'Cerrar el mantenimiento de las máquinas de poste #7 y #11 y mover 2 operarias de terminado (94 %) a guarnición por 5 días.',i:'Volver a cerca de 97 % de cumplimiento la próxima semana',o:'Jefe de planta',p:'Alta'},
+   {t:'Volver al pegante anterior en las referencias afectadas',w:'El despegue de suela pasó de 2,1 % a 6,2 % en la bota Andes desde el cambio. Abrir reclamo a Insumos Calzacol y pedir nota crédito.',i:'Bajar el reproceso de 3,8 % a cerca de 2 %',o:'Producción y compras',p:'Alta'},
+   {t:'Revisar el troquel #3 de corte',w:'La OP-1843 consumió 8 % más cuero del estándar, lo que sube el costo por par.',i:'Ahorro de cuero en las próximas órdenes',o:'Corte',p:'Media'},
+   {t:'Planear capacidad para la temporada de diciembre desde ya',w:'Con la eficiencia actual, el plan de noviembre quedaría 6 % corto. Definir horas extra o maquila con anticipación.',i:'Evitar atrasos en pedidos de temporada',o:'Gerencia de producción',p:'Media'}];
+  REPORT={title:'Producción y eficiencia de planta',filters:'Últimas 5 semanas (S36 a S40) · Planta Cúcuta',kpis,lect,recs,file:'Informe_Produccion_Grupo_Nova'};
+  out.innerHTML=shell('Producción y eficiencia de planta','',kpiRow(kpis)+
+   vis('s8','Plan vs real por semana','<div class="cv"><canvas id="r1"></canvas></div>','pares')+vis('s4','Causas de reproceso','<div class="cv"><canvas id="r2"></canvas></div>','% de pares')+
+   vis('s12','Eficiencia por proceso','<div class="cv"><canvas id="r3"></canvas></div>','%')+readRecs(lect,recs),['Resumen','Procesos','Órdenes']);
+  chart('r1',{type:'bar',data:{labels:['S36','S37','S38','S39','S40'],datasets:[{type:'bar',label:'Real',data:[4050,3920,4380,4110,4260],backgroundColor:css('--c1'),borderRadius:4,order:2},{type:'line',label:'Plan',data:[4200,4200,4500,4500,4800],borderColor:css('--c2'),backgroundColor:css('--c2'),borderDash:[6,4],pointRadius:3,order:1}]},options:{scales:{y:{min:3000}}}});
+  chart('r2',{type:'doughnut',data:{labels:['Despegue de suela','Costura','Color','Talla cruzada'],datasets:[{data:[1.9,0.9,0.6,0.4],backgroundColor:PAL(),borderColor:'#fff',borderWidth:2}]},options:{cutout:'60%'}});
+  CH.planta('r3');
+}
+function repCartera(out){
+  const kpis=[['Cartera total','$ 2.876 M','86 mayoristas','flat'],['Vencida > 60 días','$ 366 M','▼ 14 % tras el abono de hoy','up'],['Días promedio de cobro','52','Meta: 40 días','down'],['Recaudo septiembre','$ 1.488 M','▲ 5,3 %','up']];
+  const lect=['La cartera vencida a más de 60 días bajó a <b>$ 366 M</b> gracias al abono de $ 60 M de Calzado El Paso, que llegó después del recordatorio automático.','<b>Medellín</b> concentra el mayor saldo vencido, casi todo de Distribuidora Paso Firme ($ 186 M a 61 días).','El recaudo crece (+5,3 %), pero menos que la facturación: los días promedio de cobro siguen en <b>52</b>, 12 por encima de la meta.'];
+  const recs=[{t:'Acordar un plan de pagos con Distribuidora Paso Firme',w:'Es el saldo vencido más grande y tiene pedidos recurrentes. Un acuerdo a 3 cuotas reduce el riesgo sin perder el cliente.',i:'Recuperar $ 186 M en 90 días',o:'Cartera y gerencia comercial',p:'Alta'},
+   {t:'Condicionar despachos a clientes con más de 60 días',w:'Hoy se despacha a clientes en mora. La regla ya existe en el agente con aprobación; conviene aplicarla de forma sistemática.',i:'Evitar que la cartera vencida siga creciendo',o:'Cartera',p:'Alta'},
+   {t:'Ofrecer 2 % de descuento por pronto pago a 15 días',w:'El costo del descuento es menor que el gasto financiero de financiar 52 días de cartera.',i:'Bajar entre 5 y 8 días el promedio de cobro',o:'Gerencia financiera',p:'Media'},
+   {t:'Revisar cupos de crédito de clientes en Medellín y Bucaramanga',w:'Dos de los tres saldos vencidos más grandes están en estas ciudades.',i:'Menor exposición al riesgo',o:'Cartera',p:'Media'}];
+  REPORT={title:'Cartera por edades y ciudad',filters:'Corte al 8 de octubre de 2026 · Canal mayorista',kpis,lect,recs,file:'Informe_Cartera_Grupo_Nova'};
+  out.innerHTML=shell('Cartera por edades y ciudad','',kpiRow(kpis)+
+   vis('s6','Saldo por edades','<div class="cv"><canvas id="r1"></canvas></div>','COP millones')+vis('s6','Saldo vencido por ciudad','<div class="cv"><canvas id="r2"></canvas></div>','COP millones')+
+   vis('s12','Recaudo vs facturación','<div class="cv"><canvas id="r3"></canvas></div>','COP millones')+readRecs(lect,recs),['Resumen','Clientes','Ciudades']);
+  const pal=PAL();
+  chart('r1',{type:'bar',data:{labels:['Corriente','1–30','31–60','61–90','> 90'],datasets:[{data:[1620,540,290,166,200],backgroundColor:[pal[2],pal[4],pal[1],pal[5],css('--crit')],borderRadius:4}]},options:{plugins:{legend:{display:false}}}});
+  chart('r2',{type:'bar',data:{labels:['Medellín','Bucaramanga','Bogotá','Cali','Ocaña'],datasets:[{data:[186,98,82,71,54],backgroundColor:pal[3],borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+  chart('r3',{type:'line',data:{labels:MESES,datasets:[{label:'Facturación',data:VENTAS,borderColor:pal[0],backgroundColor:pal[0],tension:.3},{label:'Recaudo',data:[1150,1120,1240,1210,1330,1340,1280,1410,1488],borderColor:pal[2],backgroundColor:pal[2],tension:.3}]}});
+}
+function repRent(out){
+  const R=[['Tenis Nova Flex',21400,38.2,159900],['Botín escolar',16900,31.0,119900],['Sandalia Brisa',14200,41.0,89900],['Tacón Lía',11300,39.0,179900],['Bota Andes',9800,27.1,289900],['Mocasín ejecutivo',8600,36.0,199900]];
+  const kpis=[['Margen bruto total','35,2 %','▼ 0,6 pp vs T2','down'],['Más rentable','Sandalia Brisa','41,0 % de margen','up'],['En alerta','Bota Andes','27,1 %, cayó 7,5 pp','down'],['Referencias activas','46','6 explican el 74 % de la venta','flat']];
+  const lect=['El margen bruto total es <b>35,2 %</b>, 0,6 puntos menos que el trimestre anterior.','Las referencias de mayor volumen tienen buen margen, salvo el <b>botín escolar</b> (31 %), que depende de la temporada y compite por precio.','La <b>bota Andes</b> es la única que cayó con fuerza (de 34,6 % a 27,1 %) por el alza del cuero, el reproceso y el mayor descuento a mayoristas.'];
+  const recs=[{t:'Subir 6 % el precio de lista de la bota Andes',w:'El cuero subió 14 % en julio y el precio no se ajustó. El caso ya está preparado en Pendientes para tu decisión.',i:'Recuperar cerca de 4 puntos de margen en la referencia',o:'Gerencia comercial',p:'Alta'},
+   {t:'Negociar suela por volumen antes de la temporada escolar',w:'El botín escolar mueve 16.900 pares con margen de 31 %; un mejor precio de suela tiene alto efecto por volumen.',i:'Entre 1 y 2 puntos de margen en el botín escolar',o:'Compras',p:'Media'},
+   {t:'Dar más vitrina a la Sandalia Brisa en tiendas propias',w:'Es la referencia más rentable (41 %) y tiene inventario sano después de la reposición.',i:'Mejor mezcla de margen en tiendas',o:'Comercial',p:'Media'},
+   {t:'Depurar referencias de baja rotación',w:'De 46 referencias activas, 6 explican el 74 % de la venta. Las de baja rotación inmovilizan capital e insumos.',i:'Liberar capital de trabajo',o:'Gerencia',p:'Baja'}];
+  REPORT={title:'Rentabilidad por referencia',filters:'Tercer trimestre 2026 · Todas las líneas',kpis,lect,recs,file:'Informe_Rentabilidad_Grupo_Nova'};
+  out.innerHTML=shell('Rentabilidad por referencia','',kpiRow(kpis)+
+   vis('s8','Volumen vs margen por referencia','<div class="cv"><canvas id="r1"></canvas></div>','tamaño = precio por par')+
+   vis('s4','Detalle por referencia',`<div class="matrix"><table><tr><th>Referencia</th><th>Pares</th><th>Margen</th></tr>${R.map(r=>`<tr><td>${r[0]}</td><td>${fmt(r[1])}</td><td style="background:color-mix(in srgb,${r[2]<32?'var(--crit)':'var(--c3)'} ${Math.round(Math.abs(r[2]-34)*5)}%,transparent)">${fmt1(r[2])} %</td></tr>`).join('')}</table></div>`)+readRecs(lect,recs),['Resumen','Referencias']);
+  const pal=PAL();
+  chart('r1',{type:'bubble',data:{datasets:R.map((r,i)=>({label:r[0],data:[{x:r[1],y:r[2],r:r[3]/18000}],backgroundColor:pal[i%6]}))},options:{scales:{x:{title:{display:true,text:'Pares vendidos'}},y:{title:{display:true,text:'Margen %'},min:24,max:44}}}});
+}
+
+// ---------- descarga en PDF ----------
+const pdfTxt=t=>String(t).replace(/<[^>]+>/g,'').replace(/▲/g,'+').replace(/▼/g,'-').replace(/−/g,'-').replace(/×/g,'x').replace(/≈/g,'aprox.').replace(/→/g,'->').replace(/[“”]/g,'"').replace(/ %/g,'\u00a0%').replace(/\$ /g,'$\u00a0');
+function buildPDF(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=16,CW=W-2*M;let y=0;
+  const C={acc:[58,118,208],fg:[26,42,62],mu:[90,107,129],ln:[219,229,241],soft:[237,243,250],crit:[209,83,77],warn:[199,132,26],info:[58,118,208]};
+  const ensure=h=>{if(y+h>280){doc.addPage();y=M}};
+  // encabezado
+  doc.setFillColor(...C.acc);doc.rect(0,0,W,34,'F');doc.setFillColor(91,141,239);doc.rect(0,30,W,4,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('NOVA AGENTE · GRUPO NOVA · INFORME GENERADO POR EL AGENTE',M,12);
+  doc.setFont('helvetica','bold');doc.setFontSize(19);doc.text(pdfTxt(REPORT.title),M,24);
+  y=44;doc.setTextColor(...C.mu);doc.setFont('helvetica','normal');doc.setFontSize(9);
+  doc.text(pdfTxt(`8 de octubre de 2026, ${hhmm()} · Fuente: ERP Nova · Datos simulados para demostración`),M,y);y+=5;
+  doc.text(pdfTxt(REPORT.filters),M,y);y+=8;
+  // indicadores
+  const kw=(CW-9)/4;
+  REPORT.kpis.forEach((k,i)=>{const x=M+i*(kw+3);doc.setFillColor(...C.soft);doc.setDrawColor(...C.ln);doc.roundedRect(x,y,kw,24,2,2,'FD');
+    doc.setTextColor(...C.mu);doc.setFontSize(8);doc.text(doc.splitTextToSize(pdfTxt(k[0]),kw-6)[0],x+3,y+6);
+    doc.setTextColor(...C.fg);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(doc.splitTextToSize(pdfTxt(k[1]),kw-6)[0],x+3,y+14);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...(k[3]==='up'?[44,148,97]:k[3]==='down'?C.crit:C.mu));doc.text(doc.splitTextToSize(pdfTxt(k[2]),kw-6)[0],x+3,y+20)});
+  y+=32;
+  // gráficos
+  const imgs=charts.map(c=>{const cv=document.createElement('canvas');cv.width=c.canvas.width;cv.height=c.canvas.height;const g=cv.getContext('2d');g.fillStyle='#ffffff';g.fillRect(0,0,cv.width,cv.height);g.drawImage(c.canvas,0,0);
+    const h3=c.canvas.closest('.vis').querySelector('h3');return {t:h3.childNodes[0].textContent,src:cv.toDataURL('image/png'),r:cv.height/cv.width}});
+  const gw=(CW-6)/2,GH=58;
+  let i=0;while(i<imgs.length){const m=imgs[i];
+    if(GH/m.r>gw){const h=Math.min(62,CW*m.r),iw=h/m.r;ensure(h+10);doc.setTextColor(...C.fg);doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.text(pdfTxt(m.t),M,y+4);doc.addImage(m.src,'PNG',M+(CW-iw)/2,y+6,iw,h);y+=h+12;i++;continue}
+    const row=[m];if(imgs[i+1]&&GH/imgs[i+1].r<=gw)row.push(imgs[i+1]);ensure(GH+10);
+    row.forEach((q,k)=>{const x=M+k*(gw+6),iw=Math.min(gw,GH/q.r),h=iw*q.r;doc.setTextColor(...C.fg);doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.text(pdfTxt(q.t),x,y+4);doc.addImage(q.src,'PNG',x+(gw-iw)/2,y+6,iw,h)});
+    y+=GH+12;i+=row.length}
+  // lectura
+  const head=t=>{ensure(14);doc.setDrawColor(...C.ln);doc.line(M,y,W-M,y);y+=7;doc.setTextColor(...C.acc);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(t,M,y);y+=6};
+  head('Lectura del agente');
+  REPORT.lect.forEach(p=>{doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...C.fg);const ls=doc.splitTextToSize(pdfTxt(p),CW);ensure(ls.length*5+3);doc.text(ls,M,y);y+=ls.length*5+3});
+  y+=2;head('Recomendaciones');
+  REPORT.recs.forEach((r,i)=>{doc.setFont('helvetica','bold');doc.setFontSize(10.5);const ts=doc.splitTextToSize(pdfTxt(r.t),CW-42);doc.setFont('helvetica','normal');doc.setFontSize(9.5);const ws=doc.splitTextToSize(pdfTxt(r.w),CW-10);const h=ts.length*5+ws.length*4.6+12;ensure(h);
+    doc.setFillColor(...C.acc);doc.circle(M+3,y-1.2,3,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text(String(i+1),M+3,y,{align:'center'});
+    doc.setTextColor(...C.fg);doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text(ts,M+10,y);
+    const pc=C[PRIO[r.p]];doc.setTextColor(...pc);doc.setFontSize(8.5);doc.text('Prioridad '+r.p.toLowerCase(),W-M,y,{align:'right'});
+    let yy=y+ts.length*5;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(...C.mu);doc.text(ws,M+10,yy);yy+=ws.length*4.6;
+    doc.setFontSize(8.5);doc.setTextColor(...C.fg);doc.text(doc.splitTextToSize(pdfTxt(`Impacto: ${r.i}   ·   Responsable: ${r.o}`),CW-10),M+10,yy+1);y=yy+9});
+  // pie de página
+  const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(...C.mu);doc.text('Generado por Nova Agente · Demo de ICSAE con datos simulados',M,290);doc.text(`Página ${i} de ${n}`,W-M,290,{align:'right'})}
+  return doc.output('blob');
+}
+async function downloadPDF(btn){
+  if(!REPORT||!window.jspdf){toast('El generador de PDF aún está cargando. Intenta de nuevo en unos segundos.');return}
+  const dl=await (window.claude?.use?window.claude.use('downloads'):Promise.resolve(null));
+  if(!dl){try{const blob=buildPDF(),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=REPORT.file+'_'+hhmm().replace(':','h')+'.pdf';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Informe descargado en PDF.')}catch(e){toast('No se pudo generar el PDF en este navegador.')}return}
+  btn.disabled=true;
+  try{const blob=buildPDF();const r=await dl.save({filename:REPORT.file+'_'+hhmm().replace(':','h')+'.pdf',data:blob});if(r.status==='saved')toast('Informe descargado en PDF.')}
+  catch(e){const c=e&&e.code;if(c==='declined'){}else if(c==='rate_limited')toast('Ya hay una descarga esperando confirmación.');else toast('No se pudo generar la descarga en esta vista.')}
+  finally{btn.disabled=false}
+}
+
+// ===================== registrar =====================
+const REG={
+ ref:{title:'Nueva referencia de producto',steps:['Interpretó el mensaje','Buscó referencias parecidas en Inventario','Copió la lista de materiales de BA-118','Calculó costo y margen con los precios actuales de Compras'],
+  fields:[['Código','BA-119','s'],['Nombre','Bota Andes en cuero café','u'],['Línea','Botas y botines','c'],['Tallas','35 a 43','u'],['Precio de lista','$ 299.900','u'],['Costo estimado por par','$ 171.400','s'],['Cuero','Napa café · 1,9 dm² por par','c'],['Suela','TR negra 35–43 · Suelas Santander','c'],['Margen estimado','42,8 %','s'],['Curva inicial sugerida','35:1 · 36:2 · 37:3 · 38:3 · 39:3 · 40:2 · 41:2 · 42:1 · 43:1','s']],
+  checks:[['ok','No existe otra referencia con ese nombre ni ese código.'],['ok','Lista de materiales copiada de la bota Andes negra; solo cambia el color del cuero.'],['warn','Curtiembres del Norte no ha vendido cuero napa café en las últimas compras. El agente sugiere pedir cotización.'],['ok','El precio queda 3 % sobre la versión negra, en línea con la política de colores especiales.']],
+  commit:()=>{S.legacy.ref.unshift(['BA-119','Bota Andes en cuero café','Botas y botines','35–43','$ 299.900','agente']);S.legacy.legTab='ref'},log:['Creó la referencia BA-119 Bota Andes en cuero café','inventario'],done:'Referencia BA-119 creada con su lista de materiales y precio. También quedó lista la solicitud de cotización del cuero café.'},
+ cli:{title:'Nuevo cliente mayorista',steps:['Interpretó el mensaje','Validó el NIT y el dígito de verificación','Consultó listas restrictivas','Aplicó la política de crédito'],
+  fields:[['Razón social','Calzado La Pisada S.A.S.','u'],['NIT','901.456.789-1','u'],['Ciudad','Bucaramanga','u'],['Canal','Mayorista','c'],['Cupo solicitado','$ 80.000.000','u'],['Cupo inicial sugerido','$ 50.000.000','s'],['Plazo de pago','60 días','s'],['Lista de precios','Mayorista nacional 2026','c'],['Vendedor asignado','Zona oriente','s']],
+  checks:[['ok','NIT válido y sin duplicados en la base de clientes.'],['ok','Sin coincidencias en listas restrictivas.'],['warn','La política de crédito permite máximo $ 50 M de cupo inicial. Para $ 80 M se necesita tu aprobación.'],['ok','Bucaramanga queda en la ruta de despacho de los martes.']],
+  commit:()=>{S.legacy.cli.unshift(['901.456.789-1','Calzado La Pisada S.A.S.','Bucaramanga','Mayorista','$ 50.000.000','agente']);S.legacy.legTab='cli'},log:['Creó el cliente Calzado La Pisada S.A.S. con cupo de $ 50 M','cartera'],done:'Cliente creado con cupo de $ 50 M. La solicitud de subir a $ 80 M quedó como decisión pendiente para gerencia.'},
+ fac:{title:'Factura de proveedor',doc:true,steps:['Leyó el documento','Extrajo proveedor, ítems y valores','Lo cruzó con la OC-3381 y la entrada de almacén','Revisó los precios contra lo pactado'],
+  fields:[['Proveedor','Curtiembres del Norte S.A.S.','c'],['Factura','FE-20931 · 06/10/2026','c'],['Orden de compra','OC-3381','s'],['Ítem 1','Cuero napa negro · 9.800 dm² × $ 16.500','c'],['Ítem 2','Cuero napa café · 2.400 dm² × $ 17.100','c'],['Subtotal','$ 202.740.000','c'],['IVA 19 %','$ 38.520.600','c'],['Total','$ 241.260.600','c'],['Cuenta contable','1405 Inventario de materias primas','s']],
+  checks:[['ok','Coincide con la OC-3381 y con la entrada de almacén del 06/10 (cruce de tres vías).'],['warn','El cuero napa negro llegó a $ 16.500 por dm², 2 % sobre lo pactado. El agente sugiere pedir nota crédito por $ 3,2 M.'],['ok','Vence el 05/11/2026. Quedó en el flujo de caja de noviembre.']],
+  commit:()=>{S.legacy.oc.unshift(['FE-20931','Curtiembres del Norte','Factura cuero napa (OC-3381)','$ 241.260.600','Causada','agente']);S.legacy.legTab='oc'},log:['Causó la factura FE-20931 de Curtiembres del Norte','compras'],done:'Factura causada en contabilidad y vinculada a la OC-3381. El agente preparó el correo para pedir la nota crédito de $ 3,2 M.'}};
+const EX=[['ref','R','Crea la referencia bota Andes en cuero café, tallas 35 a 43, precio $ 299.900'],['cli','C','Nuevo cliente mayorista: Calzado La Pisada, Bucaramanga, NIT 901.456.789-1, cupo de 80 millones'],['fac','F','Registra la factura de Curtiembres del Norte (FE-20931.pdf)']];
+function vReg(){
+  return [`<div class="wrap"><div><div class="eyebrow">Paso 5 · Registro asistido</div><h1>Registra con una frase o un documento</h1>
+   <p class="lede">Los formularios del ERP siguen ahí. Pero con el agente no llenas campos: describes lo que necesitas o subes el documento, y él arma la ficha completa, la valida contra el ERP y te pide confirmar.</p></div>
+   <div class="reg"><div class="panel ask"><h2>¿Qué quieres registrar?</h2>
+     <textarea id="regt" aria-label="Qué quieres registrar" placeholder="Ej: crea la referencia bota Andes en cuero café, tallas 35 a 43, precio 299.900"></textarea>
+     <div class="btns" style="margin:0"><button class="btn" id="regb">Preparar ficha</button></div>
+     <span class="sub">Prueba con un ejemplo:</span>
+     <div class="examples">${EX.map(x=>`<button data-x="${x[0]}"><span class="xi">${x[1]}</span><span>${x[2]}</span></button>`).join('')}</div>
+     <div class="drop">También puedes arrastrar aquí una factura, una orden de compra o la foto de una remisión.</div></div>
+    <div id="regout" class="panel"><h2>Ficha preparada por el agente</h2><p class="sub" style="margin:6px 0 0">Elige un ejemplo o escribe lo que quieres registrar. Aquí aparecerá la ficha lista para revisar, con cada dato marcado según de dónde salió.</p></div></div></div>`,
+  ()=>{document.querySelectorAll('.examples button').forEach(b=>b.onclick=()=>{$('#regt').value=EX.find(x=>x[0]===b.dataset.x)[2];prepReg(b.dataset.x)});
+   $('#regb').onclick=()=>{const t=norm($('#regt').value);const k=/factura|proveedor|pdf/.test(t)?'fac':/cliente|nit|cupo/.test(t)?'cli':/referencia|producto|articulo|bota|tenis|zapato|sandalia/.test(t)?'ref':null;
+    if(k)prepReg(k);else toast('En esta demo el agente registra referencias, clientes y facturas de proveedor. En la versión conectada registra cualquier documento del ERP.')}}];
+}
+async function prepReg(k){
+  const tok=viewToken,r=REG[k],out=$('#regout');
+  out.innerHTML=`<h2>${r.title}</h2>${r.doc?`<div class="invoice scan" style="margin-top:10px"><b>CURTIEMBRES DEL NORTE S.A.S.</b> · NIT 890.501.774-2<br>FACTURA ELECTRÓNICA FE-20931 · 06/10/2026<br>Cuero napa negro ..... 9.800 dm² × 16.500<br>Cuero napa café ...... 2.400 dm² × 17.100<br>TOTAL ....................... 241.260.600</div>`:''}<ul class="trace" style="margin-top:12px">${r.steps.map(s=>`<li>${s}</li>`).join('')}</ul>`;
+  out.scrollIntoView({behavior:reduced?'auto':'smooth',block:'nearest'});
+  for(const li of out.querySelectorAll('.trace li')){li.className='run';await wait(520);if(tok!==viewToken)return;li.className='done'}
+  const src={u:'de tu mensaje',s:'sugerido por el agente',c:r.doc?'leído del documento':'copiado del ERP'};
+  out.innerHTML=`<div class="ficha"><div class="panel-h" style="margin:0"><h2>${r.title}</h2><span class="chip info">Lista para confirmar</span></div>
+   <div class="fgrid">${r.fields.map((f,i)=>`<div class="f ${f[1].length>34?'full':''}"><label for="rf${i}">${f[0]}<em class="${f[2]}">${src[f[2]]}</em></label><input id="rf${i}" value="${f[1]}"></div>`).join('')}</div>
+   <div><h2 style="font-size:14px;margin-bottom:8px">Validaciones contra el ERP</h2><ul class="checks">${r.checks.map(c=>`<li class="${c[0]}"><i>${c[0]==='ok'?'✓':'!'}</i><span>${c[1]}</span></li>`).join('')}</ul></div>
+   <div class="btns" style="margin:0" id="regbtns"><button class="btn" id="commit">Registrar en el ERP</button><button class="btn sec" id="classic">Abrir el formulario clásico</button></div></div>`;
+  $('#commit').onclick=()=>{r.commit();addLog(r.log[0],r.log[1],'Registro asistido','Confirmado por el usuario');$('#regbtns').innerHTML=`<p class="note" style="margin:0"><b>Registrado.</b> ${r.done}</p><button class="btn sec" id="seeerp">Ver el registro en el ERP clásico</button>`;$('#seeerp').onclick=()=>go('erp');toast('Registrado en el ERP y anotado en la bitácora.')};
+  $('#classic').onclick=()=>toast('El formulario clásico sigue disponible: son 24 campos que se llenarían a mano. El agente ya los dejó listos.');
+}
+
+// ===================== tradicional vs agente =====================
+const OLD=[{s:'Abrir menú Informes › Ventas',w:'Ventas',c:2,m:1},{s:'Informe por referencia: filtrar BA-118, trimestres 2 y 3',w:'Ventas por referencia',c:6,m:3},{s:'Exportar a Excel',w:'Exportar',c:3,m:2,x:true},
+ {s:'Abrir Compras › Histórico de precios de insumos',w:'Compras',c:3,m:2},{s:'Buscar cuero napa y comparar órdenes de abril y julio',w:'Histórico de precios',c:7,m:6},{s:'Exportar a Excel',w:'Exportar',c:3,m:2,x:true},
+ {s:'Abrir Producción › Reprocesos y filtrar la referencia',w:'Reprocesos',c:6,m:5},{s:'Exportar a Excel',w:'Exportar',c:3,m:2,x:true},{s:'Abrir Ventas › Condiciones comerciales de mayoristas',w:'Condiciones comerciales',c:4,m:4},
+ {s:'Excel: cruzar 4 hojas con BUSCARV',w:'Libro1.xlsx',c:5,m:12,x:true},{s:'Armar la gráfica y escribir conclusiones',w:'Libro1.xlsx',c:2,m:6,x:true}];
+const NEWT=['Leyó ventas y descuentos de la BA-118','Leyó costo de cuero y pegante en Compras','Midió reprocesos en Producción','Cruzó condiciones de mayoristas','Calculó el puente de margen y armó el plan'];
+function vCmp(){
+  return [`<div class="wrap"><div><div class="eyebrow">Paso 6 · La misma pregunta, dos formas de trabajar</div><h1>¿Por qué bajó el margen de la bota Andes?</h1>
+   <p class="lede">A la izquierda, un analista en un ERP tradicional. A la derecha, el agente. Los tiempos del lado izquierdo están acelerados; el contador muestra el tiempo real que tomaría.</p></div>
+   <div class="btns" style="margin:0"><button class="btn" id="play">Reproducir comparación</button></div>
+   <div class="cmp"><div class="panel"><div class="side-h"><span class="lbl old">ERP tradicional</span><div class="meters"><div><span>Clics</span><b id="oc">0</b></div><div><span>Tiempo</span><b id="ot">0 min</b></div></div></div>
+      <div class="oldscreen" id="olds">${oldWin('Nova ERP 4.2','Menú principal','<p style="margin:4px 0 0">Seleccione un módulo del menú.</p>')}</div><ol class="oldlog" id="olog"></ol></div>
+    <div class="panel"><div class="side-h"><span class="lbl new">ERP con agente</span><div class="meters"><div><span>Clics</span><b id="ac">0</b></div><div><span>Tiempo</span><b id="at">0 s</b></div></div></div>
+      <div class="agentside" id="ags"><p class="sub" style="margin:0">El agente espera la pregunta.</p></div></div></div>
+   <div class="verdict" id="verdict" hidden></div></div>`,()=>{$('#play').onclick=runCmp}];
+}
+function rows(seed,n,cols){let s=seed;const r=()=>{s=(s*9301+49297)%233280;return s/233280};return Array.from({length:n},()=>cols.map((c,j)=>j===0?c+(1000+Math.floor(r()*8999)):fmt(Math.floor(r()*900000))))}
+function oldWin(title,sub,body,xls){return `<div class="legacy ${xls?'xls':''}"><div class="tb"><span>${title} — [${sub}]</span><i>_□×</i></div><div class="mb"><span>Archivo</span><span>Edición</span><span>Ver</span><span>Informes</span><span>Ventana</span><span>Ayuda</span></div><div class="bd">${body}</div><div class="sbar"><span>Usuario: ANALISTA2</span><span>NOVA_PROD</span></div></div><svg class="fcur" id="fcur" viewBox="0 0 22 22"><path d="M3 2 L3 18 L7.5 13.8 L10.6 20 L13.4 18.7 L10.4 12.6 L16.5 12.4 Z" fill="#000" stroke="#fff" stroke-width="1.4"/></svg>`}
+function oldBody(st,i){if(st.x)return `<table><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th></tr>${rows(i*7+3,12,['R','','','','','']).map((r,k)=>`<tr${k===3?' class="sel"':''}><th>${k+1}</th>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+  return `<div class="fld"><span>Referencia:</span><span class="in">BA-118</span><span>Periodo:</span><span class="in">01/04/2026</span><span class="in">30/09/2026</span><span class="bt" id="obtn">Consultar</span><span class="bt">Exportar...</span></div><table><tr><th>Documento</th><th>Valor</th><th>Costo</th><th>Cant.</th></tr>${rows(i*11+5,11,['DOC-','','','']).map((r,k)=>`<tr${k===2?' class="sel"':''}>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table>`}
+async function runCmp(){
+  const tok=viewToken,play=$('#play');play.disabled=true;$('#verdict').hidden=true;
+  const ags=$('#ags');ags.innerHTML=`<div class="result" style="animation:none"><p class="sub" style="margin:0">Pregunta recibida</p><b>¿Por qué bajó el margen de la bota Andes?</b></div><ul class="trace">${NEWT.map(t=>`<li>${t}</li>`).join('')}</ul>`;
+  $('#olog').innerHTML='';let oc=0,om=0;const t0=performance.now();
+  const agentRun=(async()=>{const lis=ags.querySelectorAll('.trace li');
+    const tick=setInterval(()=>{if(tok!==viewToken){clearInterval(tick);return}$('#at').textContent=Math.min(18,Math.round((performance.now()-t0)/1000*2.4))+' s'},100);
+    for(const li of lis){if(tok!==viewToken)return;li.className='run';await wait(1250);li.className='done'}
+    clearInterval(tick);if(tok!==viewToken)return;$('#at').textContent='18 s';
+    const r=document.createElement('div');r.className='result';r.innerHTML=`<p><b>Margen de 34,6 % a 27,1 %.</b> Causa principal: el cuero napa subió 14 % y el precio no se ajustó. Le siguen el reproceso por despegue de suela y el mayor descuento a mayoristas.</p><p class="sub">3 acciones preparadas: ajuste de precio, reclamo al proveedor del pegante y cambio de pegante en planta.</p><div class="btns" style="margin-top:6px"><button class="btn" id="openm3">Abrir el caso</button></div>`;ags.appendChild(r);$('#openm3').onclick=()=>go('mis','m3')})();
+  for(let i=0;i<OLD.length;i++){if(tok!==viewToken)return;
+    const st=OLD[i],box=$('#olds');box.innerHTML=oldWin(st.x?'Microsoft Excel':'Nova ERP 4.2',st.w,oldBody(st,i),st.x);
+    const li=document.createElement('li');li.className='c';li.textContent=`${i+1}. ${st.s}`;[...$('#olog').children].forEach(x=>x.className='');$('#olog').appendChild(li);$('#olog').scrollTop=9999;
+    const cur=$('#fcur'),W=box.clientWidth,H=box.clientHeight,n=Math.min(st.c,4);
+    for(let k=0;k<n;k++){if(tok!==viewToken)return;cur.style.transform=`translate(${30+Math.random()*(W-80)}px,${50+Math.random()*(H-90)}px)`;await wait(260);
+      oc++;om+=st.m/n;$('#oc').textContent=oc;$('#ot').textContent=Math.round(om)+' min';const b=$('#obtn');if(b&&k===1)b.classList.add('press')}
+    oc+=st.c-n;$('#oc').textContent=oc;await wait(300)}
+  await agentRun;if(tok!==viewToken)return;
+  $('#ot').textContent='45 min';$('#oc').textContent='44';
+  const v=$('#verdict');v.hidden=false;v.innerHTML=`<div class="panel"><div class="eyebrow" style="color:var(--muted)">Resultado tradicional</div><b>44 clics · 45 minutos</b><p class="sub" style="margin:6px 0 0">Termina con un Excel. El diagnóstico depende de que el analista sepa dónde buscar, y todavía no se ha tomado ninguna acción.</p></div>
+    <div class="panel" style="border-color:var(--accent)"><div class="eyebrow">Resultado con agente</div><b>0 clics · 18 segundos</b><p class="sub" style="margin:6px 0 0">Termina con la causa cuantificada y 3 acciones listas para aprobar. Además, el agente lo detectó solo a las 03:12, sin que nadie preguntara.</p></div>`;
+  play.disabled=false;play.textContent='Repetir comparación';
+}
+
+// ===================== autonomía =====================
+const RULES=[['cobro','Enviar recordatorios de cobro','A clientes con facturas vencidas a más de 30 días.'],['retener','Retener o liberar despachos a clientes en mora','Cuando el cliente supera 60 días de vencimiento.'],['op','Crear órdenes de producción','Para reponer referencias con cobertura menor a 2 semanas.','opLim','pares'],['oc','Reservar o comprar insumos','Cuero, suelas, pegantes y plantillas.','ocLim','millones'],['personal','Reasignar personal de planta','Mover operarios entre procesos por menos de una semana.'],['precio','Cambiar precios de lista','Cualquier referencia, cualquier canal.']];
+function vAut(){
+  return [`<div class="wrap"><div><div class="eyebrow">Paso 7 · Gobierno del agente</div><h1>Tú pones las reglas</h1>
+   <p class="lede">Define qué puede hacer el agente solo, qué necesita tu aprobación y qué solo puede sugerir. Cada caso y cada evento del día respetan estas reglas.</p></div>
+   <div class="panel"><div class="rules">${RULES.map(r=>`<div class="rule"><p><b>${r[1]}</b><small>${r[2]}</small>${r[3]?`<span class="lim">Autónomo hasta <input type="number" id="lim-${r[0]}" aria-label="Límite" value="${S.rules[r[3]]}" min="0" step="${r[3]==='opLim'?50:5}"> ${r[4]}; por encima, con aprobación</span>`:''}</p>
+     <div class="seg" data-r="${r[0]}">${['a','p','s'].map(k=>`<button class="${S.rules[r[0]]===k?'on '+k:''}" data-k="${k}">${LVL[k]}</button>`).join('')}</div></div>`).join('')}</div></div>
+   <p class="sub">Prueba: sube el límite de órdenes de producción a 700 pares y abre el caso del Nova Flex en Pendientes. El agente te dirá que ya podría hacerlo solo.</p></div>`,
+  ()=>{document.querySelectorAll('.seg').forEach(sg=>sg.onclick=e=>{const b=e.target.closest('button');if(!b)return;S.rules[sg.dataset.r]=b.dataset.k;sg.querySelectorAll('button').forEach(x=>x.className=x===b?'on '+x.dataset.k:'');toast(`Regla actualizada: ${RULES.find(r=>r[0]===sg.dataset.r)[1]} → ${LVL[b.dataset.k]}`)});
+   [['op','opLim'],['oc','ocLim']].forEach(([r,k])=>{const i=$('#lim-'+r);i.onchange=()=>{S.rules[k]=Math.max(0,+i.value||0)}})}];
+}
+
+// ===================== bitácora =====================
+function vLog(){
+  return [`<div class="wrap"><div><div class="eyebrow">Paso 8 · Auditoría</div><h1>Bitácora del agente</h1><p class="lede">Cada acción queda registrada con el módulo que tocó, el contexto que usó y quién la autorizó. Cualquier acción se puede revertir.</p></div>
+   <div class="panel"><div class="tablewrap"><table class="t"><thead><tr><th>Hora</th><th>Acción</th><th>Módulo</th><th>Autorización</th><th></th></tr></thead><tbody>
+   ${S.log.map((l,i)=>`<tr class="${l.fresh?'new':''}"><td class="num">${l.t}</td><td>${l.a}<small>Contexto: ${l.d}</small></td><td><span class="tag">${MOD[l.m]}</span></td><td>${l.by}</td><td>${l.st==='rev'?'<span class="chip warn">Revertida</span>':`<button class="lnk" data-i="${i}">Revertir</button>`}</td></tr>`).join('')}
+   </tbody></table></div></div></div>`,
+  ()=>{S.log.forEach(l=>l.fresh=false);document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const l=S.log[+b.dataset.i];l.st='rev';
+    if(l.mid){const m=MIS.find(x=>x.id===l.mid);m.actions[l.ai].state='rev';if(l.mid==='m1'&&l.ai===0)S.legacy.op=S.legacy.op.filter(r=>r[0]!=='OP-1846');if(l.mid==='m3'&&l.ai===0){const r=S.legacy.ref.find(x=>x[0]==='BA-118');r[4]='$ 289.900';r[5]=''}if(l.mid==='m3'&&l.ai===1)S.legacy.oc=S.legacy.oc.filter(r=>r[0]!=='RC-0091')}
+    b.parentElement.innerHTML='<span class="chip warn">Revertida</span>';toast('Acción revertida. El agente registró la reversión y no volverá a proponerla sin un dato nuevo.')})}];
+}
+
+// ===================== ERP clásico =====================
+const LT={op:['Órdenes de producción',['OP','Referencia','Pares','Proceso','Avance','Entrega']],inv:['Existencias por talla',['Ref.','Referencia',...TALLAS.map(String)]],ref:['Referencias',['Código','Referencia','Línea','Tallas','Precio']],cli:['Clientes',['NIT','Razón social','Ciudad','Canal','Cupo']],oc:['Compras y facturas',['Doc.','Proveedor','Concepto','Valor','Estado']],cxc:['Cuentas por cobrar',['Factura','Cliente','Saldo','Días','Gestión']]};
+const HINT={op:['La OP-1842 de botín escolar va a llegar 2 días tarde porque guarnición está al 78 %.','Avisar al cliente'],inv:['Tallas 37 a 39 del Nova Flex por debajo de una semana de venta. Hay sobrante en 42 y 43.','Ver el caso'],ref:['La bota Andes tiene el precio desactualizado frente al costo del cuero de julio.','Ver el caso'],cli:['Almacenes Pisa Bien tiene 66 días de mora y un pedido abierto.','Ver la jornada'],oc:['La última factura de Curtiembres del Norte trae precio 2 % sobre lo pactado.','Revisar'],cxc:['Calzado El Paso abonó $ 60 M y pide liberar su pedido.','Ver la jornada']};
+function vErp(){
+  const tab=S.legacy.legTab,[name,cols]=LT[tab],data=S.legacy[tab],h=HINT[tab];
+  return [`<div class="wrap"><div><div class="eyebrow">El ERP de siempre</div><h1>El ERP clásico sigue ahí</h1>
+   <p class="lede">El agente no reemplaza el ERP: trabaja sobre él. Lo que ejecuta o registra aparece aquí como cualquier dato, marcado como <span class="byagent">creado por agente</span>. Y mientras el funcionario usa estas pantallas, el agente lo acompaña con lo que la pantalla no muestra.</p></div>
+   <div class="companion"><span class="av">N</span><p>${h[0]}<small>El agente ve la pantalla «${name}» y te avisa lo que cruza con otros módulos.</small></p><button class="btn sec sm" id="hintb">${h[1]}</button></div>
+   <div class="legacy"><div class="tb"><span>Nova ERP 4.2 — [${name}]</span><i>_□×</i></div><div class="mb"><span>Archivo</span><span>Edición</span><span>Ver</span><span>Informes</span><span>Ventana</span><span>Ayuda</span></div>
+   <div class="legacy-tabs">${Object.keys(LT).map(k=>`<button class="${k===tab?'on':''}" data-t="${k}">${LT[k][0]}</button>`).join('')}</div>
+   <div class="bd"><div class="scroll"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th></th></tr>
+   ${data.map(r=>{const ag=r[r.length-1]==='agente';return `<tr>${r.slice(0,cols.length).map(c=>`<td>${c===0?'—':c}</td>`).join('')}<td>${ag?'<span class="byagent">creado por agente</span>':''}</td></tr>`}).join('')}
+   </table></div></div><div class="sbar"><span>${data.length} registros</span><span>Usuario: GERENCIA</span></div></div></div>`,
+  ()=>{document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.legacy.legTab=b.dataset.t;go('erp')});
+   $('#hintb').onclick=()=>{const t=S.legacy.legTab;if(t==='inv')go('mis','m1');else if(t==='ref')go('mis','m3');else if(t==='cxc'||t==='cli')go('day');else toast('Hecho. El agente preparó el mensaje y lo dejó en la bitácora.')}}];
+}
+
+// ===================== instrucciones globales =====================
+function command(v){
+  v=(v||'').trim();if(!v)return;const t=norm(v);
+  if(/informe|reporte|tablero|dashboard|grafic/.test(t)){go('rep');reportFromText(v);return}
+  if(/registr|crea |crear|nuevo|nueva|factura|cliente/.test(t)){go('reg');$('#regt').value=v;$('#regb').click();return}
+  const map=[[/margen|bota|andes|rentab/,'m3'],[/talla|agot|curva|nova flex|stock/,'m1'],[/planta|produc|guarnic|eficien/,'m2'],[/cartera|cobr|deben|moros|el paso/,'m4'],[/sandalia|brisa/,'m5']];
+  for(const[re,id]of map)if(re.test(t)){MIS.find(x=>x.id===id).played=false;go('mis',id);toast('El agente ya trabajaba en esto. Te abrió el caso con el diagnóstico.');return}
+  if(/regla|autonom|permis|limite/.test(t))return go('aut');
+  if(/bitacora|auditor|revert/.test(t))return go('log');
+  if(/compar|tradicional/.test(t))return go('cmp');
+  if(/hoy|jornada|en vivo|pedido/.test(t))return go('day');
+  if(/venta|canal/.test(t)){go('rep');reportFromText(v);return}
+  toast('En la versión conectada el agente atiende cualquier instrucción. Aquí prueba con informes, registros, tallas, planta, margen o cartera.');
+}
+$('#cmdf').addEventListener('submit',e=>{e.preventDefault();const v=$('#cmdi').value;$('#cmdi').value='';command(v)});
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();(S.view==='home'?$('#bigi'):$('#cmdi')).focus()}});
+go('home');
+</script>
+
+</body>
+</html>
